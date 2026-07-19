@@ -24,6 +24,9 @@ Monnify documentation. Anything not directly confirmable from official docs is c
 - Webhook Event Types — https://developers.monnify.com/docs/webhooks/event-types
 - Single Transfers — https://developers.monnify.com/docs/disbursements/single-transfers
 - Initiate Transfers — https://teamapt.atlassian.net/wiki/spaces/MON/pages/223149917/Initiate+Transfers
+- Testing Pay with Transfer on Monnify Sandbox — https://developers.monnify.com/blog/testing-pay-with-transfer-on-monnify-sandbox
+- Integration Tools (Banking App Simulator) — https://teamapt.atlassian.net/wiki/spaces/MON/pages/213909537/Integration+Tools
+- Webhook Events and Request Structure (verbatim SUCCESSFUL_TRANSACTION payload) — https://teamapt.atlassian.net/wiki/spaces/MON/pages/320864320
 
 ---
 
@@ -409,6 +412,144 @@ Used for a stretch "settlement" feature — pay out from your Monnify wallet to 
 
 ---
 
+## Simulating a sandbox payment into a reserved account
+
+Real bank transfers do not work in the Monnify sandbox. To make money "land" in a reserved
+account you use Monnify's **Banking App Simulator** (a fake mobile-banking-app UI), which tells
+the sandbox to mark a matching transaction as `PAID` and fire the collection webhook. There is
+**no dashboard "fund test account" button and no REST endpoint that credits a reserved account** —
+the simulator is the mechanism.
+
+### The simulator
+
+- **URL:** `https://websim.sdk.monnify.com/#/bankingapp`
+  (the blog writes it as `https://websim.sdk.monnify.com/?#/bankingapp` — same page).
+- Per the Confluence *Integration Tools* page, the simulator "allows you to simulate a transfer to
+  **any of the virtual accounts you created in the sandbox environment**." A reserved (virtual)
+  account is exactly such an account, so you can pay into it directly.
+- The UI resembles a Nigerian mobile banking app. Use the **Transfer** option in its nav.
+
+### Fields to enter in the simulator (verbatim from the "Testing Pay with Transfer" blog)
+
+1. **Bank** — "Select the same bank shown on your checkout page." For a reserved account, select
+   the bank the reserved account was issued on (for account `4003115967` that is **Wema bank**).
+2. **Account number** — "Paste the virtual account number displayed to the customer" — i.e. the
+   reserved account number (`4003115967`).
+3. **Amount** — "Type the _exact_ amount specified when the transaction was initialized." Monnify
+   matches on account number **and** amount; the wrong amount yields `OVERPAID`/`PARTIALLY_PAID`.
+4. Click **Make Payment**. "The simulator notifies Monnify's sandbox infrastructure, which marks
+   the transaction as `PAID` and dispatches the webhook."
+
+### Reserved account vs one-time-payment: important distinction
+
+- The "Testing Pay with Transfer" blog is written for a **one-time Pay-with-Transfer** flow, where
+  you first `Initialize Transaction` + `bank-transfer/init-payment` to mint a **temporary** account
+  and a `transactionReference`, then simulate paying that temporary account.
+- A **reserved account is a permanent, standing account** — it already exists (you created it via
+  `POST /api/v2/bank-transfer/reserved-accounts`). You do **not** need to initialize a transaction
+  first. Per the Integration Tools page you simulate a transfer straight to the reserved account
+  number, and Monnify generates a brand-new transaction for that credit. **The
+  `transactionReference` therefore does NOT exist before you pay — Monnify mints it for the
+  simulated inflow and delivers it in the webhook** (and via the reserved-account transactions
+  list / verify endpoints afterward). This is the key difference from the one-time flow, where you
+  hold the reference up-front.
+
+### Obtaining the transactionReference of the simulated inflow
+
+Because the reference is server-generated at payment time, get it from one of:
+
+- **The webhook** (primary): `eventData.transactionReference` (see JSON below).
+- **The sandbox dashboard:** Transactions list — the new PAID transaction appears with its
+  reference.
+- **Reserved-account transactions API:**
+  `GET {{base_url}}/api/v1/bank-transfer/reserved-accounts/transactions?accountReference={yourRef}`
+  lists transactions on the account, each with its `transactionReference`. (Not re-verified in this
+  pass — flagged below.)
+
+Then confirm it server-side via section 3 (`GET /api/v2/transactions/{transactionReference}`,
+url-encoding the `|` characters).
+
+### The transaction-completed webhook (verbatim from Confluence "Webhook Events and Request Structure")
+
+The full POST body is `{ "eventType": ..., "eventData": { ... } }`. For a successful reserved
+account inflow:
+
+- **`eventType`:** `"SUCCESSFUL_TRANSACTION"`
+
+```json
+{
+  "eventType": "SUCCESSFUL_TRANSACTION",
+  "eventData": {
+    "product": {
+      "reference": "1636106097661",
+      "type": "RESERVED_ACCOUNT"
+    },
+    "transactionReference": "MNFY|04|20211117112842|000170",
+    "paymentReference": "MNFY|04|20211117112842|000170",
+    "paidOn": "2021-11-17 11:28:42.615",
+    "paymentDescription": "Adm",
+    "metaData": {},
+    "paymentSourceInformation": [
+      {
+        "bankCode": "",
+        "amountPaid": 3000,
+        "accountName": "Monnify Limited",
+        "sessionId": "e6cV1smlpkwG38Cg6d5F9B2PRnIq5FqA",
+        "accountNumber": "0065432190"
+      }
+    ],
+    "destinationAccountInformation": {
+      "bankCode": "232",
+      "bankName": "Sterling bank",
+      "accountNumber": "6000140770"
+    },
+    "amountPaid": 3000,
+    "totalPayable": 3000,
+    "cardDetails": {},
+    "paymentMethod": "ACCOUNT_TRANSFER",
+    "currency": "NGN",
+    "settlementAmount": "2990.00",
+    "paymentStatus": "PAID",
+    "customer": {
+      "name": "John Doe",
+      "email": "test@tester.com"
+    }
+  }
+}
+```
+
+**Exact field paths the webhook handler should extract:**
+
+- **`eventType`** — top-level; gate on `== "SUCCESSFUL_TRANSACTION"`.
+- **transactionReference:** `eventData.transactionReference` (Monnify's id; contains `|`). Use this
+  as the idempotency key and re-verify it server-side before crediting.
+- **paymentReference:** `eventData.paymentReference`.
+- **Destination (paid-into) account number:** `eventData.destinationAccountInformation.accountNumber`
+  — compare against your reserved account (`4003115967`) to map the inflow.
+  Destination bank: `eventData.destinationAccountInformation.bankName` / `.bankCode`.
+- **Reserved account correlation key:** `eventData.product.reference` (with
+  `eventData.product.type == "RESERVED_ACCOUNT"`). `product.reference` is your reserved account's
+  `accountReference` — the reliable way to map the inflow to a subscription.
+- **Amount:** `eventData.amountPaid` and `eventData.totalPayable`. NOTE: in this event-wrapped
+  payload they are **JSON numbers** (`3000`), whereas the legacy flat webhook and the v2 status
+  endpoint return **strings** (`"100.00"`). Parse defensively (accept number or string).
+- **Status:** `eventData.paymentStatus` (`"PAID"`). **Payer** account (for reconciliation):
+  `eventData.paymentSourceInformation[].accountNumber` / `.accountName`.
+
+### Sandbox quirks / limitations
+
+- Reserved-account inflows **can** be simulated in sandbox — via the simulator, not via any API
+  credit endpoint and not via a dashboard button.
+- **Amount + account number must match** exactly; wrong amount → `OVERPAID` / `PARTIALLY_PAID`.
+- The sample destination in the doc (`232` / "Sterling bank" / `6000140770`) is Monnify's example,
+  not your account — your webhook will show Wema bank and `4003115967`.
+- `monnify-signature` header may be **absent in sandbox** (see the note in section 4 / Confidence
+  below) — you may not be able to fully exercise signature verification against a simulated inflow.
+- The reserved-account transactions **list endpoint path** above and the claim that no dashboard/API
+  credit exists are called out under Confidence as not fully re-verified this pass.
+
+---
+
 ## Confidence / unconfirmed
 
 Confirmed verbatim from official docs:
@@ -425,8 +566,25 @@ Confirmed verbatim from official docs:
 - Legacy flat webhook payload (transactionReference/paymentReference/amountPaid/paymentStatus/
   paidOn/transactionHash/paymentMethod) — quoted verbatim.
 - Single transfer endpoint `POST /api/v2/disbursements/single` and the sample request/response.
+- **Banking App Simulator** URL `https://websim.sdk.monnify.com/#/bankingapp` and that it simulates
+  transfers to "any of the virtual accounts you created in the sandbox" (Confluence Integration
+  Tools page). Simulator fields (Bank / Account number / exact Amount / Make Payment) and the "marks
+  transaction as PAID and dispatches the webhook" behaviour — quoted from the dev-portal
+  "Testing Pay with Transfer on Monnify Sandbox" blog.
+- **`SUCCESSFUL_TRANSACTION` event-wrapped webhook payload** — now quoted **verbatim** from the
+  Confluence "Webhook Events and Request Structure" page (supersedes the earlier "reconstructed"
+  caveat for section 4b's structure): `eventType` + `eventData` with `product.reference`/`type`,
+  `transactionReference`, `destinationAccountInformation.accountNumber`, numeric `amountPaid`, etc.
 
 Could NOT fully confirm (verify against live sandbox before coding to these):
+
+- **Reserved-account transactions list endpoint** `GET /api/v1/bank-transfer/reserved-accounts/
+  transactions?accountReference=...` — path stated from memory of Monnify docs, not re-fetched
+  verbatim this pass. Confirm exact path/params before relying on it; the webhook is the primary
+  source of the `transactionReference` for a simulated inflow.
+- **No dashboard "fund/simulate" button and no API credit endpoint for reserved accounts** — asserted
+  from the absence of any such feature across the docs consulted; treat as "none found", not
+  "proven not to exist". The simulator is the documented mechanism.
 
 - **Current event-wrapped webhook payload** (`eventType` / `eventData` with `customer`,
   `destinationAccountInformation`, `product`): the dev-portal and playground pages render the JSON

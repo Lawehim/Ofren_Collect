@@ -44,40 +44,56 @@ public sealed class MonnifyWebhookController : ControllerBase
             return Unauthorized();
         }
 
-        var reference = ExtractTransactionReference(rawBody);
-        if (reference is not null)
+        if (TryExtract(rawBody, out var reference, out var accountNumber))
         {
-            await _mediator.Send(new HandleTransactionNotificationCommand(reference), cancellationToken);
+            await _mediator.Send(
+                new HandleTransactionNotificationCommand(reference, accountNumber), cancellationToken);
         }
 
         // Acknowledge regardless — an unrecognisable body must not trigger endless retries (TC-3.7).
         return Ok();
     }
 
-    private static string? ExtractTransactionReference(string rawBody)
+    /// <summary>
+    /// Pulls the transaction reference and the paid-into reserved account from the notification.
+    /// Handles the event-wrapped shape (<c>eventData.transactionReference</c>,
+    /// <c>eventData.destinationAccountInformation.accountNumber</c>) and a flat fallback.
+    /// </summary>
+    private static bool TryExtract(string rawBody, out string reference, out string accountNumber)
     {
+        reference = string.Empty;
+        accountNumber = string.Empty;
+
         try
         {
             using var document = JsonDocument.Parse(rawBody);
             var root = document.RootElement;
-
-            if (TryReadString(root, "transactionReference", out var direct))
+            if (root.ValueKind != JsonValueKind.Object)
             {
-                return direct;
+                return false;
             }
 
-            if (root.ValueKind == JsonValueKind.Object &&
-                root.TryGetProperty("eventData", out var eventData) &&
-                TryReadString(eventData, "transactionReference", out var nested))
+            var scope = root.TryGetProperty("eventData", out var eventData) &&
+                        eventData.ValueKind == JsonValueKind.Object
+                ? eventData
+                : root;
+
+            TryReadString(scope, "transactionReference", out reference);
+
+            if (scope.TryGetProperty("destinationAccountInformation", out var destination))
             {
-                return nested;
+                TryReadString(destination, "accountNumber", out accountNumber);
+            }
+            else
+            {
+                TryReadString(scope, "destinationAccountNumber", out accountNumber);
             }
 
-            return null;
+            return reference.Length > 0 && accountNumber.Length > 0;
         }
         catch (JsonException)
         {
-            return null;
+            return false;
         }
     }
 

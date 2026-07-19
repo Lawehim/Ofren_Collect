@@ -29,7 +29,7 @@ public class HandleTransactionNotificationHandlerTests
     private HandleTransactionNotificationHandler CreateHandler() =>
         new(_monnify, _payments, _subscriptions, _invoices, _unitOfWork, _notifier);
 
-    private static HandleTransactionNotificationCommand Command() => new(Reference);
+    private static HandleTransactionNotificationCommand Command() => new(Reference, AccountNumber);
 
     private void GivenVerifiedAmount(decimal amount, bool successful = true) =>
         _monnify.VerifyTransactionAsync(Reference, Arg.Any<CancellationToken>())

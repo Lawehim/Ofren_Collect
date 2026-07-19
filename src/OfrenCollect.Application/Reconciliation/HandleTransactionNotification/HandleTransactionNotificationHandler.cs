@@ -46,19 +46,24 @@ public sealed class HandleTransactionNotificationHandler
             return;
         }
 
-        // 2. Never trust the webhook body — confirm with Monnify (FR-3.4, NFR-1.5).
+        // 2. Never trust the webhook body's figures — confirm amount/status with Monnify
+        //    (FR-3.4, NFR-1.5).
         var verified = await _monnify.VerifyTransactionAsync(reference, cancellationToken);
         if (!verified.IsSuccessful)
         {
             return;
         }
 
-        // 3. Resolve the owning subscription from the reserved account (FR-4.1, §11.3).
+        var reservedAccountNumber = command.DestinationAccountNumber;
+
+        // 3. Resolve the owning subscription from the reserved account paid into (FR-4.1, §11.3).
+        //    The account comes from the (signature-authenticated) webhook, not the verify
+        //    response, whose account field is the payer's and may be masked.
         var subscription = await _subscriptions.FindByReservedAccountNumberAsync(
-            verified.DestinationAccountNumber, cancellationToken);
+            reservedAccountNumber, cancellationToken);
         if (subscription is null)
         {
-            await RecordUnmatchedAsync(verified, cancellationToken);
+            await RecordUnmatchedAsync(reference, reservedAccountNumber, verified, cancellationToken);
             return;
         }
 
@@ -66,7 +71,7 @@ public sealed class HandleTransactionNotificationHandler
         var invoice = await _invoices.GetOpenInvoiceForSubscriptionAsync(subscription.Id, cancellationToken);
         if (invoice is null)
         {
-            await RecordUnmatchedAsync(verified, cancellationToken);
+            await RecordUnmatchedAsync(reference, reservedAccountNumber, verified, cancellationToken);
             return;
         }
 
@@ -75,7 +80,7 @@ public sealed class HandleTransactionNotificationHandler
         var payment = PaymentEvent.RecordMatched(
             subscription.TenantId,
             reference,
-            verified.DestinationAccountNumber,
+            reservedAccountNumber,
             verified.Amount,
             verified.PaidAt,
             invoice.Id);
@@ -88,15 +93,16 @@ public sealed class HandleTransactionNotificationHandler
             subscription.TenantId, subscription.Id, invoice.Id, invoice.Status, invoice.AmountPaid, cancellationToken);
     }
 
-    private async Task RecordUnmatchedAsync(VerifiedTransaction verified, CancellationToken cancellationToken)
+    private async Task RecordUnmatchedAsync(
+        string reference, string reservedAccountNumber, VerifiedTransaction verified, CancellationToken cancellationToken)
     {
         var payment = PaymentEvent.RecordUnmatched(
-            verified.TransactionReference, verified.DestinationAccountNumber, verified.Amount, verified.PaidAt);
+            reference, reservedAccountNumber, verified.Amount, verified.PaidAt);
         _payments.Add(payment);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         await _notifier.UnmatchedPaymentAsync(
-            verified.TransactionReference, verified.Amount, verified.DestinationAccountNumber, cancellationToken);
+            reference, verified.Amount, reservedAccountNumber, cancellationToken);
     }
 }

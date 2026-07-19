@@ -38,7 +38,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
 
         var monnify = MonnifyReturning(reference, 5000m, accountNumber);
 
-        await RunHandler(reference, monnify);
+        await RunHandler(reference, accountNumber, monnify);
 
         await using (var db = AsTenant(tenantId))
         {
@@ -47,7 +47,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
         }
 
         // Re-deliver the same reference: no double count, invoice unchanged (FR-3.6, NFR-2.1).
-        await RunHandler(reference, monnify);
+        await RunHandler(reference, accountNumber, monnify);
 
         await using (var db = AsTenant(tenantId))
         {
@@ -64,7 +64,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
         const string reference = "MNFY-INT-UNDER";
         var invoiceId = await SeedSubscriptionWithInvoice(tenantId, accountNumber, 10000m);
 
-        await RunHandler(reference, MonnifyReturning(reference, 7000m, accountNumber));
+        await RunHandler(reference, accountNumber, MonnifyReturning(reference, 7000m, accountNumber));
 
         await using var db = AsTenant(tenantId);
         var invoice = await db.Invoices.SingleAsync(i => i.Id == invoiceId);
@@ -77,7 +77,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
     {
         const string reference = "MNFY-INT-UNMATCHED";
 
-        await RunHandler(reference, MonnifyReturning(reference, 5000m, "9999999999"));
+        await RunHandler(reference, "9999999999", MonnifyReturning(reference, 5000m, "9999999999"));
 
         await using var db = _fixture.CreateContext(new TestTenantContext(null));
         var payment = await db.PaymentEvents.SingleAsync(p => p.MonnifyTransactionReference == reference);
@@ -95,7 +95,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
         return monnify;
     }
 
-    private async Task RunHandler(string reference, IMonnifyClient monnify)
+    private async Task RunHandler(string reference, string accountNumber, IMonnifyClient monnify)
     {
         // The webhook path has no ambient tenant.
         await using var db = _fixture.CreateContext(new TestTenantContext(null));
@@ -107,7 +107,8 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
             new UnitOfWork(db),
             _notifier);
 
-        await handler.Handle(new HandleTransactionNotificationCommand(reference), CancellationToken.None);
+        await handler.Handle(
+            new HandleTransactionNotificationCommand(reference, accountNumber), CancellationToken.None);
     }
 
     private async Task<Guid> SeedSubscriptionWithInvoice(Guid tenantId, string accountNumber, decimal amountDue)
