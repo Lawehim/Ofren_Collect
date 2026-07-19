@@ -1,6 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\OfrenCollect.Application\OfrenCollect.Application.csproj" />
   </ItemGroup>
 
