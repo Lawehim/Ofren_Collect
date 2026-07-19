@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Infrastructure.Auth;
+using OfrenCollect.Infrastructure.Jobs;
 using OfrenCollect.Infrastructure.Monnify;
 
 namespace OfrenCollect.Infrastructure;
@@ -35,6 +36,8 @@ public static class DependencyInjection
             // Retry-with-backoff, timeout, and a circuit breaker around Monnify (NFR-2.5):
             // transient faults are retried; a sustained outage trips the breaker to fail fast.
             .AddStandardResilienceHandler();
+
+        services.AddHostedService<InboxDrainer>();
 
         return services;
     }

@@ -9,6 +9,7 @@ using OfrenCollect.Domain.Plans;
 using OfrenCollect.Domain.Subscriptions;
 using OfrenCollect.Domain.Tenants;
 using OfrenCollect.Domain.Users;
+using OfrenCollect.Domain.Webhooks;
 
 namespace OfrenCollect.Repository.Persistence;
 
@@ -41,6 +42,7 @@ public sealed class OfrenDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -64,7 +66,18 @@ public sealed class OfrenDbContext : DbContext
         ConfigureInvoice(modelBuilder);
         ConfigurePaymentEvent(modelBuilder);
         ConfigureAuditEntry(modelBuilder);
+        ConfigureInboxMessage(modelBuilder);
     }
+
+    private static void ConfigureInboxMessage(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<InboxMessage>(b =>
+        {
+            b.HasKey(m => m.Id);
+            b.Property(m => m.TransactionReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(m => m.DestinationAccountNumber).HasMaxLength(ShortText).IsRequired();
+            b.Property(m => m.RawPayload).IsRequired();
+            b.HasIndex(m => m.ProcessedAt);
+        });
 
     private static void ConfigureAuditEntry(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<AuditEntry>(b =>

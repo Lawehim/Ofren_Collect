@@ -1,19 +1,19 @@
 using System.Text.Json;
-using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using OfrenCollect.Application.Abstractions;
-using OfrenCollect.Application.Reconciliation.HandleTransactionNotification;
+using OfrenCollect.Application.Abstractions.Persistence;
+using OfrenCollect.Domain.Webhooks;
 using OfrenCollect.Infrastructure.Monnify;
 
 namespace OfrenCollect.Api.Controllers;
 
 /// <summary>
-/// Receives Monnify transaction notifications. Verifies the signature (fail-closed), then
-/// acknowledges with 200 and reconciles. Authenticated by signature, not a JWT — it is called
-/// by Monnify, not a logged-in user (§11.3). Reconciliation re-verifies with Monnify, so the
-/// webhook body is never trusted on its own.
+/// Receives Monnify transaction notifications. Verifies the signature (fail-closed), persists the
+/// notification durably, then acknowledges with 200 — the background drainer reconciles it
+/// (FR-3.2, NFR-2.6). Authenticated by signature, not a JWT: it is called by Monnify. The drainer
+/// re-verifies each transaction with Monnify, so the webhook body is never trusted on its own.
 /// </summary>
 [ApiController]
 [Route("api/webhooks/monnify")]
@@ -23,15 +23,24 @@ public sealed class MonnifyWebhookController : ControllerBase
 {
     private const string SignatureHeader = "monnify-signature";
 
-    private readonly ISender _mediator;
+    private readonly IInboxRepository _inbox;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMonnifyWebhookVerifier _verifier;
     private readonly MonnifyOptions _options;
+    private readonly TimeProvider _clock;
 
-    public MonnifyWebhookController(ISender mediator, IMonnifyWebhookVerifier verifier, MonnifyOptions options)
+    public MonnifyWebhookController(
+        IInboxRepository inbox,
+        IUnitOfWork unitOfWork,
+        IMonnifyWebhookVerifier verifier,
+        MonnifyOptions options,
+        TimeProvider clock)
     {
-        _mediator = mediator;
+        _inbox = inbox;
+        _unitOfWork = unitOfWork;
         _verifier = verifier;
         _options = options;
+        _clock = clock;
     }
 
     [HttpPost]
@@ -46,21 +55,17 @@ public sealed class MonnifyWebhookController : ControllerBase
             return Unauthorized();
         }
 
+        // Persist durably before acknowledging so a crash cannot lose the payment (NFR-2.6);
+        // the drainer reconciles it. An unrecognisable body is acknowledged and ignored (TC-3.7).
         if (TryExtract(rawBody, out var reference, out var accountNumber))
         {
-            await _mediator.Send(
-                new HandleTransactionNotificationCommand(reference, accountNumber), cancellationToken);
+            _inbox.Add(InboxMessage.Receive(reference, accountNumber, rawBody, _clock.GetUtcNow()));
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
-        // Acknowledge regardless — an unrecognisable body must not trigger endless retries (TC-3.7).
         return Ok();
     }
 
-    /// <summary>
-    /// Pulls the transaction reference and the paid-into reserved account from the notification.
-    /// Handles the event-wrapped shape (<c>eventData.transactionReference</c>,
-    /// <c>eventData.destinationAccountInformation.accountNumber</c>) and a flat fallback.
-    /// </summary>
     private static bool TryExtract(string rawBody, out string reference, out string accountNumber)
     {
         reference = string.Empty;
