@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Application.Reconciliation.HandleTransactionNotification;
 using OfrenCollect.Infrastructure.Monnify;
@@ -17,6 +18,7 @@ namespace OfrenCollect.Api.Controllers;
 [ApiController]
 [Route("api/webhooks/monnify")]
 [AllowAnonymous]
+[EnableRateLimiting("auth")]
 public sealed class MonnifyWebhookController : ControllerBase
 {
     private const string SignatureHeader = "monnify-signature";

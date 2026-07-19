@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +21,7 @@ using OfrenCollect.Repository.Persistence;
 using Serilog;
 
 const string SpaCorsPolicy = "spa";
+const string AuthRateLimitPolicy = "auth";
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,6 +91,40 @@ builder.Services.AddCors(options => options.AddPolicy(SpaCorsPolicy, policy => p
     .AllowAnyMethod()
     .AllowCredentials()));
 
+var perTenantLimit = builder.Configuration.GetValue("RateLimiting:PerTenantPermitLimit", 100);
+var perIpLimit = builder.Configuration.GetValue("RateLimiting:PerIpPermitLimit", 10);
+var rateLimitWindow = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60));
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Global: per tenant on authenticated routes, falling back to per IP when anonymous.
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        var key = context.User.FindFirstValue(JwtTokenService.TenantIdClaim)
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            key, _ => new FixedWindowRateLimiterOptions { PermitLimit = perTenantLimit, Window = rateLimitWindow });
+    });
+
+    // Tighter per-IP limit for anonymous auth and the webhook (blunts brute force / floods).
+    options.AddPolicy(AuthRateLimitPolicy, context =>
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "anonymous";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"auth:{ip}", _ => new FixedWindowRateLimiterOptions { PermitLimit = perIpLimit, Window = rateLimitWindow });
+    });
+
+    options.OnRejected = (context, _) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter =
+            ((int)rateLimitWindow.TotalSeconds).ToString(CultureInfo.InvariantCulture);
+        return ValueTask.CompletedTask;
+    };
+});
+
 var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
@@ -103,6 +140,7 @@ app.UseHttpsRedirection();
 app.UseCors(SpaCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHub<NotificationsHub>("/hubs/notifications");

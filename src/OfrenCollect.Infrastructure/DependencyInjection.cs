@@ -26,12 +26,15 @@ public static class DependencyInjection
         services.AddSingleton<IMonnifyWebhookVerifier, MonnifyWebhookSignatureVerifier>();
 
         services.AddHttpClient<IMonnifyClient, MonnifyClient>(client =>
-        {
-            if (!string.IsNullOrWhiteSpace(monnifyOptions.BaseUrl))
             {
-                client.BaseAddress = new Uri(monnifyOptions.BaseUrl);
-            }
-        });
+                if (!string.IsNullOrWhiteSpace(monnifyOptions.BaseUrl))
+                {
+                    client.BaseAddress = new Uri(monnifyOptions.BaseUrl);
+                }
+            })
+            // Retry-with-backoff, timeout, and a circuit breaker around Monnify (NFR-2.5):
+            // transient faults are retried; a sustained outage trips the breaker to fail fast.
+            .AddStandardResilienceHandler();
 
         return services;
     }
