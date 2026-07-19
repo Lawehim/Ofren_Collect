@@ -109,7 +109,7 @@ into. Perfect for a per-subscription reserved account: use a stable `accountRefe
   "accountReference": "abc123",
   "accountName": "Test Reserved Account",
   "currencyCode": "NGN",
-  "contractCode": "8389328412",
+  "contractCode": "<YOUR_CONTRACT_CODE>",
   "customerEmail": "test@tester.com",
   "customerName": "John Doe",
   "bvn": "21212121212",
@@ -152,7 +152,7 @@ them only if you need split settlement or source restriction.
   "responseMessage": "success",
   "responseCode": "0",
   "responseBody": {
-    "contractCode": "222001311614",
+    "contractCode": "<YOUR_CONTRACT_CODE>",
     "accountReference": "abc1234",
     "accountName": "Tes",
     "currencyCode": "NGN",
