@@ -65,9 +65,10 @@ Monnify sandbox. All dependencies are free/OSS (see the note below).
 
 ## Setup
 
-> ⚠️ **Status: foundation (M0).** The solution scaffold, quality gates, and toolchain are in
-> place and build clean. Persistence, migrations, and the app flows land in the next
-> milestones; setup steps below will grow with them.
+> **Status: core backend complete and runnable.** Auth, plans, customers, enrolment,
+> the webhook→verify→reconcile pipeline, the live dashboard, tenant isolation, and the
+> Monnify integration are built and tested (unit + real-Postgres integration). The React
+> SPA and the operational tier (audit, rate limiting, resilience) land next.
 
 ### 1. Clone and restore
 
@@ -92,19 +93,40 @@ dotnet user-secrets set "Monnify:SecretKey" "<sandbox-secret-key>"
 dotnet user-secrets set "Monnify:ContractCode" "<sandbox-contract-code>"
 ```
 
-### 3. Run PostgreSQL (Docker)
+Order the steps so the values line up:
 
 ```bash
 docker run --name ofren-db -e POSTGRES_USER=ofren -e POSTGRES_PASSWORD=<your-password> \
   -e POSTGRES_DB=ofren_collect -p 5432:5432 -d postgres:17
 ```
 
-### 4. Run the API
+Then point the connection string at it (use the same `<your-password>` and port). Monnify
+keys are only needed for live enrolment; everything else runs without them.
+
+### 3. Run the API
 
 ```bash
 dotnet run --project src/OfrenCollect.Api
-# health check:  GET https://localhost:5001/health  ->  { "status": "ok" }
+# health check:  GET http://localhost:5080/health  ->  { "status": "ok" }
 ```
+
+On first run it applies the EF migrations and seeds demo data, so the app is never empty.
+
+### 4. Try it
+
+Log in with the seeded owner and open the dashboard:
+
+```bash
+BASE=http://localhost:5080
+TOKEN=$(curl -s -X POST $BASE/api/auth/login -H "Content-Type: application/json" \
+  -d '{"email":"ada@brightpath.ng","password":"password123"}' \
+  | grep -o '"token":"[^"]*"' | sed 's/"token":"//;s/"$//')
+curl -s $BASE/api/dashboard -H "Authorization: Bearer $TOKEN"
+```
+
+You should see the seeded subscription (Chidi Eze / Premium / reserved account 7080124933).
+Register a second business via `POST /api/auth/register` and confirm its dashboard is empty —
+tenant isolation in action.
 
 ## Tests
 
