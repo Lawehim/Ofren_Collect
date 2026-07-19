@@ -57,9 +57,7 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
             HttpMethod.Get, $"/api/v2/transactions/{encodedReference}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using var response = await _http.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
+        using var response = await SendMonnifyAsync(request, cancellationToken);
         var body = await ReadResponseBodyAsync<VerifyTransactionBody>(response, cancellationToken);
 
         return new VerifiedTransaction(
@@ -90,9 +88,7 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
         };
         httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using var response = await _http.SendAsync(httpRequest, cancellationToken);
-        response.EnsureSuccessStatusCode();
-
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
         var body = await ReadResponseBodyAsync<ReservedAccountBody>(response, cancellationToken);
         var account = body.Accounts is { Count: > 0 } accounts
             ? accounts[0]
@@ -122,9 +118,7 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
             using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login");
             request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
 
-            using var response = await _http.SendAsync(request, cancellationToken);
-            response.EnsureSuccessStatusCode();
-
+            using var response = await SendMonnifyAsync(request, cancellationToken);
             var body = await ReadResponseBodyAsync<AuthBody>(response, cancellationToken);
 
             _cachedToken = body.AccessToken;
@@ -135,6 +129,33 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
         {
             _authGate.Release();
         }
+    }
+
+    private async Task<HttpResponseMessage> SendMonnifyAsync(
+        HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException exception)
+        {
+            throw new MonnifyException("Could not reach Monnify.", exception);
+        }
+        catch (TaskCanceledException exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new MonnifyException("The Monnify request timed out.", exception);
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var status = (int)response.StatusCode;
+            response.Dispose();
+            throw new MonnifyException($"Monnify returned HTTP {status}.");
+        }
+
+        return response;
     }
 
     private static async Task<T> ReadResponseBodyAsync<T>(

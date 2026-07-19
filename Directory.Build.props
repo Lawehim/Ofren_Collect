@@ -13,6 +13,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- CA1848 (LoggerMessage source-gen delegates) is a high-frequency-logging micro-opt;
+         not worth the ceremony for this app's occasional logging. -->
+    <NoWarn>$(NoWarn);CA1848</NoWarn>
   </PropertyGroup>
 
 </Project>

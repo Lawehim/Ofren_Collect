@@ -1,0 +1,28 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using OfrenCollect.Application.Abstractions.Persistence;
+using OfrenCollect.Repository.Persistence;
+using OfrenCollect.Repository.Persistence.Repositories;
+
+namespace OfrenCollect.Repository;
+
+/// <summary>Registers the persistence layer: the DbContext, repositories, and unit of work.</summary>
+public static class DependencyInjection
+{
+    public static IServiceCollection AddRepository(this IServiceCollection services, string connectionString)
+    {
+        services.AddDbContext<OfrenDbContext>(options => options.UseNpgsql(connectionString));
+
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped<IPlanRepository, PlanRepository>();
+        services.AddScoped<ICustomerRepository, CustomerRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IInvoiceRepository, InvoiceRepository>();
+        services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<IDashboardReader, DashboardReader>();
+
+        return services;
+    }
+}

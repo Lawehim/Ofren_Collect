@@ -95,6 +95,20 @@ public class MonnifyClientTests
     }
 
     [Fact]
+    public async Task VerifyTransaction_WhenHttpError_ThrowsMonnifyException()
+    {
+        var http = new HttpClient(new StubHandler(AuthJson, "{}", HttpStatusCode.InternalServerError))
+        {
+            BaseAddress = new Uri("https://sandbox.monnify.com")
+        };
+        var client = new MonnifyClient(http, new MonnifyOptions { ApiKey = "key", SecretKey = "secret" }, new FixedClock(Now));
+
+        var act = async () => await client.VerifyTransactionAsync("MNFY|123", CancellationToken.None);
+
+        await act.Should().ThrowAsync<MonnifyException>();
+    }
+
+    [Fact]
     public async Task VerifyTransaction_WhenEnvelopeUnsuccessful_ThrowsMonnifyException()
     {
         var client = CreateClient(
@@ -117,24 +131,23 @@ public class MonnifyClientTests
     private sealed class StubHandler : HttpMessageHandler
     {
         private readonly string _authJson;
-        private readonly string _verifyJson;
+        private readonly string _mainJson;
+        private readonly HttpStatusCode _mainStatus;
 
-        public StubHandler(string authJson, string verifyJson)
+        public StubHandler(string authJson, string mainJson, HttpStatusCode mainStatus = HttpStatusCode.OK)
         {
             _authJson = authJson;
-            _verifyJson = verifyJson;
+            _mainJson = mainJson;
+            _mainStatus = mainStatus;
         }
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var json = request.RequestUri!.AbsolutePath.Contains("/auth/login", StringComparison.Ordinal)
-                ? _authJson
-                : _verifyJson;
-
-            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            var isAuth = request.RequestUri!.AbsolutePath.Contains("/auth/login", StringComparison.Ordinal);
+            var response = new HttpResponseMessage(isAuth ? HttpStatusCode.OK : _mainStatus)
             {
-                Content = new StringContent(json, Encoding.UTF8, "application/json")
+                Content = new StringContent(isAuth ? _authJson : _mainJson, Encoding.UTF8, "application/json")
             };
             return Task.FromResult(response);
         }

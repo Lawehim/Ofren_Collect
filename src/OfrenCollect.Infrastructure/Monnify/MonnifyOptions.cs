@@ -15,4 +15,11 @@ public sealed class MonnifyOptions
     public string SecretKey { get; init; } = string.Empty;
 
     public string ContractCode { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Whether to enforce the monnify-signature header on webhooks. Monnify may send it only in
+    /// production; in sandbox this can be false, relying on mandatory server-side verification.
+    /// Defaults to true (fail-closed for production).
+    /// </summary>
+    public bool VerifyWebhookSignature { get; init; } = true;
 }
