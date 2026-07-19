@@ -8,6 +8,13 @@ namespace OfrenCollect.Application.Abstractions;
 public interface IMonnifyClient
 {
     /// <summary>
+    /// Provisions a dedicated reserved account for a subscription (FR-2.3). The returned
+    /// account number is the identity money is later reconciled by.
+    /// </summary>
+    Task<ReservedAccount> CreateReservedAccountAsync(
+        CreateReservedAccountRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Independently confirms a transaction with Monnify by its reference, returning the
     /// authoritative amount, destination account, and paid-at time. Reconciliation trusts
     /// this, not the webhook body.

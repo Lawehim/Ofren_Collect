@@ -76,6 +76,25 @@ public class MonnifyClientTests
     }
 
     [Fact]
+    public async Task CreateReservedAccount_MapsFirstAccountFromResponse()
+    {
+        var reservedJson =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":{"
+            + "\"accountReference\":\"OFREN-1\",\"accounts\":["
+            + "{\"accountNumber\":\"7080124933\",\"bankName\":\"Wema Bank\"},"
+            + "{\"accountNumber\":\"5050505050\",\"bankName\":\"Sterling Bank\"}]}}";
+        var client = CreateClient(reservedJson);
+
+        var account = await client.CreateReservedAccountAsync(
+            new OfrenCollect.Application.Abstractions.CreateReservedAccountRequest(
+                "OFREN-1", "Chidi Eze", "chidi@mail.com"),
+            CancellationToken.None);
+
+        account.AccountNumber.Should().Be("7080124933");
+        account.BankName.Should().Be("Wema Bank");
+    }
+
+    [Fact]
     public async Task VerifyTransaction_WhenEnvelopeUnsuccessful_ThrowsMonnifyException()
     {
         var client = CreateClient(

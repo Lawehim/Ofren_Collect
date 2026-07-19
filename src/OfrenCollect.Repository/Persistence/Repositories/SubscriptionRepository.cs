@@ -11,6 +11,8 @@ public sealed class SubscriptionRepository : ISubscriptionRepository
 
     public SubscriptionRepository(OfrenDbContext db) => _db = db;
 
+    public void Add(Subscription subscription) => _db.Subscriptions.Add(subscription);
+
     public Task<Subscription?> FindByReservedAccountNumberAsync(
         string accountNumber, CancellationToken cancellationToken) =>
         // Webhook path: no ambient tenant, so bypass the global filter. Reserved accounts are

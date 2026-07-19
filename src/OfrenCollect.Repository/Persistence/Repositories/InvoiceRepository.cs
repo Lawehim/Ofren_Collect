@@ -11,6 +11,8 @@ public sealed class InvoiceRepository : IInvoiceRepository
 
     public InvoiceRepository(OfrenDbContext db) => _db = db;
 
+    public void Add(Invoice invoice) => _db.Invoices.Add(invoice);
+
     public Task<Invoice?> GetOpenInvoiceForSubscriptionAsync(
         Guid subscriptionId, CancellationToken cancellationToken) =>
         // Tracked (not AsNoTracking): the caller mutates the invoice via ApplyPayment and saves.

@@ -5,6 +5,8 @@ namespace OfrenCollect.Application.Abstractions.Persistence;
 /// <summary>Reads invoices for reconciliation.</summary>
 public interface IInvoiceRepository
 {
+    void Add(Invoice invoice);
+
     /// <summary>
     /// Returns the subscription's current open invoice (Pending or Underpaid), or null if
     /// none is open. Resolved on the webhook path, so the implementation bypasses the global

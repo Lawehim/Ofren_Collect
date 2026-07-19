@@ -25,6 +25,7 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
     private static readonly JsonSerializerOptions JsonOptions =
         new(JsonSerializerDefaults.Web) { PropertyNameCaseInsensitive = true };
 
+    private const string CurrencyCode = "NGN";
     private const string PaidOnFormat = "dd/MM/yyyy hh:mm:ss tt";
     private static readonly TimeSpan WestAfricaTimeOffset = TimeSpan.FromHours(1);
     private static readonly TimeSpan TokenExpiryBuffer = TimeSpan.FromSeconds(60);
@@ -67,6 +68,37 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
             body.AccountDetails?.AccountNumber ?? string.Empty,
             ParsePaidOn(body.PaidOn),
             InflowStatuses.Contains(body.PaymentStatus));
+    }
+
+    public async Task<ReservedAccount> CreateReservedAccountAsync(
+        CreateReservedAccountRequest request, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var requestBody = new CreateReservedAccountRequestBody(
+            request.AccountReference,
+            request.CustomerName,
+            CurrencyCode,
+            _options.ContractCode,
+            request.CustomerEmail,
+            request.CustomerName,
+            GetAllAvailableBanks: true);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v2/bank-transfer/reserved-accounts")
+        {
+            Content = JsonContent.Create(requestBody, options: JsonOptions)
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await _http.SendAsync(httpRequest, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var body = await ReadResponseBodyAsync<ReservedAccountBody>(response, cancellationToken);
+        var account = body.Accounts is { Count: > 0 } accounts
+            ? accounts[0]
+            : throw new MonnifyException("Monnify returned no reserved account.");
+
+        return new ReservedAccount(account.AccountNumber, account.BankName);
     }
 
     private async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
@@ -151,4 +183,21 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
 
     private sealed record AccountDetailsBody(
         [property: JsonPropertyName("accountNumber")] string AccountNumber);
+
+    private sealed record CreateReservedAccountRequestBody(
+        [property: JsonPropertyName("accountReference")] string AccountReference,
+        [property: JsonPropertyName("accountName")] string AccountName,
+        [property: JsonPropertyName("currencyCode")] string CurrencyCode,
+        [property: JsonPropertyName("contractCode")] string ContractCode,
+        [property: JsonPropertyName("customerEmail")] string CustomerEmail,
+        [property: JsonPropertyName("customerName")] string CustomerName,
+        [property: JsonPropertyName("getAllAvailableBanks")] bool GetAllAvailableBanks);
+
+    private sealed record ReservedAccountBody(
+        [property: JsonPropertyName("accountReference")] string AccountReference,
+        [property: JsonPropertyName("accounts")] IReadOnlyList<AccountBody>? Accounts);
+
+    private sealed record AccountBody(
+        [property: JsonPropertyName("accountNumber")] string AccountNumber,
+        [property: JsonPropertyName("bankName")] string BankName);
 }

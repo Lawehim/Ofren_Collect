@@ -5,6 +5,8 @@ namespace OfrenCollect.Application.Abstractions.Persistence;
 /// <summary>Reads subscriptions for reconciliation.</summary>
 public interface ISubscriptionRepository
 {
+    void Add(Subscription subscription);
+
     /// <summary>
     /// Finds the subscription that owns a reserved account number. Used on the webhook path,
     /// which has no ambient tenant, so the implementation deliberately bypasses the global
