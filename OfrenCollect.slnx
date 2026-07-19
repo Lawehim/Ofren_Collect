@@ -11,5 +11,6 @@
     <Project Path="tests/OfrenCollect.Api.IntegrationTests/OfrenCollect.Api.IntegrationTests.csproj" />
     <Project Path="tests/OfrenCollect.Application.UnitTests/OfrenCollect.Application.UnitTests.csproj" />
     <Project Path="tests/OfrenCollect.Domain.UnitTests/OfrenCollect.Domain.UnitTests.csproj" />
+    <Project Path="tests/OfrenCollect.Infrastructure.UnitTests/OfrenCollect.Infrastructure.UnitTests.csproj" />
   </Folder>
 </Solution>

@@ -176,7 +176,8 @@ Also:
   it for that concept.
 - One project per layer — `SharedKernel`, `Domain`, `Application`, `Repository`,
   `Infrastructure`, `Api` — plus test projects mirroring them
-  (`Domain.UnitTests`, `Application.UnitTests`, `Api.IntegrationTests`).
+  (`Domain.UnitTests`, `Application.UnitTests`, `Infrastructure.UnitTests`,
+  `Api.IntegrationTests`).
 
 ---
 
