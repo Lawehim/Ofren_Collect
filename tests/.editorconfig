@@ -1,0 +1,10 @@
+# Analyzer relaxations for test projects only.
+# Production code keeps the full ruleset from Directory.Build.props.
+
+[*.cs]
+# Test method names intentionally use underscores for behavior naming
+# (CLAUDE.md §4.4: Reconcile_WhenAmountBelowDue_MarksInvoiceUnderpaid).
+dotnet_diagnostic.CA1707.severity = none
+
+# Awaiting inside tests does not need ConfigureAwait(false).
+dotnet_diagnostic.CA2007.severity = none
