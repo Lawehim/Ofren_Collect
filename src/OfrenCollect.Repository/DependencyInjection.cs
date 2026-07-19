@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Application.Abstractions.Persistence;
 using OfrenCollect.Repository.Persistence;
 using OfrenCollect.Repository.Persistence.Repositories;
@@ -22,6 +23,8 @@ public static class DependencyInjection
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IDashboardReader, DashboardReader>();
+        services.AddScoped<IAuditReader, AuditReader>();
+        services.AddSingleton<IAuditLogger, AuditLogger>();
 
         return services;
     }

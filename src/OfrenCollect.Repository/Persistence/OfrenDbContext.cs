@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Domain.Abstractions;
+using OfrenCollect.Domain.Audit;
 using OfrenCollect.Domain.Customers;
 using OfrenCollect.Domain.Invoices;
 using OfrenCollect.Domain.Payments;
@@ -39,6 +40,7 @@ public sealed class OfrenDbContext : DbContext
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -61,7 +63,22 @@ public sealed class OfrenDbContext : DbContext
         ConfigureSubscription(modelBuilder);
         ConfigureInvoice(modelBuilder);
         ConfigurePaymentEvent(modelBuilder);
+        ConfigureAuditEntry(modelBuilder);
     }
+
+    private static void ConfigureAuditEntry(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<AuditEntry>(b =>
+        {
+            b.HasKey(a => a.Id);
+            b.Property(a => a.CorrelationId).HasMaxLength(ShortText).IsRequired();
+            b.Property(a => a.Method).HasMaxLength(16).IsRequired();
+            b.Property(a => a.Path).HasMaxLength(ShortText).IsRequired();
+            b.Property(a => a.QueryString).HasMaxLength(ShortText);
+            b.Property(a => a.IpAddress).HasMaxLength(64);
+            // Audit is nullable-tenant (pre-auth calls) and so is not covered by the global
+            // filter; the audit query scopes by tenant explicitly.
+            b.HasIndex(a => new { a.TenantId, a.TimestampUtc });
+        });
 
     private static void ConfigureTenant(ModelBuilder modelBuilder) =>
         modelBuilder.Entity<Tenant>(b =>
