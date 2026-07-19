@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OfrenCollect.Application.Abstractions;
+using OfrenCollect.Application.Assistant;
+using OfrenCollect.Infrastructure.Ai;
 using OfrenCollect.Infrastructure.Auth;
 using OfrenCollect.Infrastructure.Jobs;
 using OfrenCollect.Infrastructure.Monnify;
@@ -38,6 +40,27 @@ public static class DependencyInjection
             .AddStandardResilienceHandler();
 
         services.AddHostedService<InboxDrainer>();
+
+        // AI assistant (stretch, flag-gated). Off by default -> the NullAiAssistant; when enabled,
+        // an OpenAI-compatible model classifies the question and the app grounds the answer.
+        var aiOptions = configuration.GetSection(AiOptions.SectionName).Get<AiOptions>() ?? new AiOptions();
+        services.AddSingleton(aiOptions);
+        if (aiOptions.Enabled)
+        {
+            services.AddHttpClient<IIntentClassifier, LlmIntentClassifier>(client =>
+                {
+                    if (!string.IsNullOrWhiteSpace(aiOptions.BaseUrl))
+                    {
+                        client.BaseAddress = new Uri(aiOptions.BaseUrl);
+                    }
+                })
+                .AddStandardResilienceHandler();
+            services.AddScoped<IAiAssistant, AiAssistant>();
+        }
+        else
+        {
+            services.AddSingleton<IAiAssistant, NullAiAssistant>();
+        }
 
         return services;
     }

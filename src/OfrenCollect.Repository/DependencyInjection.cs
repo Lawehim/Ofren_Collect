@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IDashboardReader, DashboardReader>();
         services.AddScoped<IAuditReader, AuditReader>();
+        services.AddScoped<IAssistantData, AssistantDataReader>();
         services.AddSingleton<IAuditLogger, AuditLogger>();
 
         return services;
