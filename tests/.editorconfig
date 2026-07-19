@@ -8,3 +8,6 @@ dotnet_diagnostic.CA1707.severity = none
 
 # Awaiting inside tests does not need ConfigureAwait(false).
 dotnet_diagnostic.CA2007.severity = none
+
+# xUnit collection-definition classes conventionally end in "Collection".
+dotnet_diagnostic.CA1711.severity = none
