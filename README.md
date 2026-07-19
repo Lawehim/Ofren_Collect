@@ -68,6 +68,10 @@ Monnify sandbox. All dependencies are free / open-source.
 - *(optional)* A Monnify **sandbox** account (API key, secret key, contract code) — only needed
   for live enrolment; everything else runs without it.
 
+> **Windows note:** if `git clone` reports *"Filename too long"*, enable long paths once with
+> `git config --global core.longpaths true`, then clone (or clone into a short path like
+> `C:\src\ofren`).
+
 ## Run it (from a clean clone)
 
 ### 1. Start PostgreSQL
