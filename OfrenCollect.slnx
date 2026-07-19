@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OfrenCollect.Api/OfrenCollect.Api.csproj" />
+    <Project Path="src/OfrenCollect.Application/OfrenCollect.Application.csproj" />
+    <Project Path="src/OfrenCollect.Domain/OfrenCollect.Domain.csproj" />
+    <Project Path="src/OfrenCollect.Infrastructure/OfrenCollect.Infrastructure.csproj" />
+    <Project Path="src/OfrenCollect.Repository/OfrenCollect.Repository.csproj" />
+    <Project Path="src/OfrenCollect.SharedKernel/OfrenCollect.SharedKernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/OfrenCollect.Api.IntegrationTests/OfrenCollect.Api.IntegrationTests.csproj" />
+    <Project Path="tests/OfrenCollect.Application.UnitTests/OfrenCollect.Application.UnitTests.csproj" />
+    <Project Path="tests/OfrenCollect.Domain.UnitTests/OfrenCollect.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>
