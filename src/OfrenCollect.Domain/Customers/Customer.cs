@@ -1,9 +1,10 @@
+using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.SharedKernel;
 
 namespace OfrenCollect.Domain.Customers;
 
 /// <summary>An individual or business a tenant bills. Requires a non-blank name and email.</summary>
-public sealed class Customer : AggregateRoot
+public sealed class Customer : AggregateRoot, ITenantOwned
 {
     private Customer()
     {

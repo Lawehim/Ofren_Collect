@@ -1,3 +1,4 @@
+using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.SharedKernel;
 
 namespace OfrenCollect.Domain.Subscriptions;
@@ -7,7 +8,7 @@ namespace OfrenCollect.Domain.Subscriptions;
 /// account it is paid into is what makes reconciliation zero-touch: it identifies the
 /// subscription (and therefore the tenant) uniquely.
 /// </summary>
-public sealed class Subscription : AggregateRoot
+public sealed class Subscription : AggregateRoot, ITenantOwned
 {
     private Subscription()
     {

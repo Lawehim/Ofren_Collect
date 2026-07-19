@@ -1,3 +1,4 @@
+using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.SharedKernel;
 
 namespace OfrenCollect.Domain.Plans;
@@ -6,7 +7,7 @@ namespace OfrenCollect.Domain.Plans;
 /// A named recurring charge (amount + interval) a business bills its customers on.
 /// Enforces FR-1.3: a non-blank name and an amount greater than zero.
 /// </summary>
-public sealed class Plan : AggregateRoot
+public sealed class Plan : AggregateRoot, ITenantOwned
 {
     private Plan()
     {

@@ -1,3 +1,4 @@
+using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.SharedKernel;
 
 namespace OfrenCollect.Domain.Invoices;
@@ -7,7 +8,7 @@ namespace OfrenCollect.Domain.Invoices;
 /// against it. The reconciliation rules (FR-4.2–4.5) live here: applying a payment
 /// accumulates what has been paid and derives the payment status.
 /// </summary>
-public sealed class Invoice : AggregateRoot
+public sealed class Invoice : AggregateRoot, ITenantOwned
 {
     /// <summary>Constructor for the persistence layer (EF Core).</summary>
     private Invoice()

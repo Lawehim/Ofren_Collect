@@ -1,3 +1,4 @@
+using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.SharedKernel;
 
 namespace OfrenCollect.Domain.Users;
@@ -6,7 +7,7 @@ namespace OfrenCollect.Domain.Users;
 /// A login belonging to exactly one tenant. The password is only ever held as a hash
 /// (CLAUDE.md §8); the email is normalised to lower case for consistent lookups.
 /// </summary>
-public sealed class User : AggregateRoot
+public sealed class User : AggregateRoot, ITenantOwned
 {
     private User()
     {
