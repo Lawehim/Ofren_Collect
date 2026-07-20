@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using OfrenCollect.Application.Assistant;
 using OfrenCollect.Infrastructure.Ai;
 
@@ -12,7 +13,9 @@ public class LlmIntentClassifierTests
     {
         var json = "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"" + content + "\"}}]}";
         var http = new HttpClient(new StubHandler(json, status)) { BaseAddress = new Uri("http://localhost:11434") };
-        return new LlmIntentClassifier(http, new AiOptions { Model = "test", BaseUrl = "http://localhost:11434" });
+        return new LlmIntentClassifier(
+            http, new AiOptions { Model = "test", BaseUrl = "http://localhost:11434" },
+            NullLogger<LlmIntentClassifier>.Instance);
     }
 
     [Theory]

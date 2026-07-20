@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Logging;
 using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Application.Assistant;
 
@@ -29,11 +30,13 @@ public sealed class LlmIntentClassifier : IIntentClassifier
 
     private readonly HttpClient _http;
     private readonly AiOptions _options;
+    private readonly ILogger<LlmIntentClassifier> _logger;
 
-    public LlmIntentClassifier(HttpClient http, AiOptions options)
+    public LlmIntentClassifier(HttpClient http, AiOptions options, ILogger<LlmIntentClassifier> logger)
     {
         _http = http;
         _options = options;
+        _logger = logger;
     }
 
     public async Task<CollectionsIntent> ClassifyAsync(string question, CancellationToken cancellationToken)
@@ -56,6 +59,12 @@ public sealed class LlmIntentClassifier : IIntentClassifier
         using var response = await _http.SendAsync(httpRequest, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
+            // The provider rejected the request (bad key, wrong model/URL, rate limit). We still
+            // fail safe to Unknown, but log why so a misconfiguration is diagnosable (not silent).
+            var error = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning(
+                "AI intent classifier: provider returned {StatusCode} for model '{Model}'. Response: {Error}",
+                (int)response.StatusCode, _options.Model, error);
             return CollectionsIntent.Unknown;
         }
 
