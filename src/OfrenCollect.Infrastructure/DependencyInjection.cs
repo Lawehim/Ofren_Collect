@@ -6,6 +6,7 @@ using OfrenCollect.Infrastructure.Ai;
 using OfrenCollect.Infrastructure.Auth;
 using OfrenCollect.Infrastructure.Jobs;
 using OfrenCollect.Infrastructure.Monnify;
+using OfrenCollect.Infrastructure.Refunds;
 
 namespace OfrenCollect.Infrastructure;
 
@@ -38,6 +39,14 @@ public static class DependencyInjection
             // Retry-with-backoff, timeout, and a circuit breaker around Monnify (NFR-2.5):
             // transient faults are retried; a sustained outage trips the breaker to fail fast.
             .AddStandardResilienceHandler();
+
+        // MonnifyClient also serves the focused refund boundary; forward to the same typed client
+        // so refunds inherit its auth caching and resilience rather than duplicating them.
+        services.AddTransient<IMonnifyRefundClient>(sp => (IMonnifyRefundClient)sp.GetRequiredService<IMonnifyClient>());
+
+        var refundsOptions = configuration.GetSection(RefundsOptions.SectionName).Get<RefundsOptions>()
+            ?? new RefundsOptions();
+        services.AddSingleton(refundsOptions);
 
         services.AddHostedService<InboxDrainer>();
 

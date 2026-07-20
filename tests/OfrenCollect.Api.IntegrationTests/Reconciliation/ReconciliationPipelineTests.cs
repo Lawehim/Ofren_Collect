@@ -101,7 +101,7 @@ public sealed class ReconciliationPipelineTests : IAsyncLifetime
         await using var db = _fixture.CreateContext(new TestTenantContext(null));
         var handler = new HandleTransactionNotificationHandler(
             monnify,
-            new PaymentEventRepository(db),
+            new PaymentEventRepository(db, new TestTenantContext(null)),
             new SubscriptionRepository(db),
             new InvoiceRepository(db),
             new UnitOfWork(db),

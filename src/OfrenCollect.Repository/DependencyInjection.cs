@@ -20,10 +20,12 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
+        services.AddScoped<IRefundRepository, RefundRepository>();
         services.AddScoped<IInboxRepository, InboxRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IDashboardReader, DashboardReader>();
+        services.AddScoped<ITransactionReader, TransactionReader>();
         services.AddScoped<IAuditReader, AuditReader>();
         services.AddScoped<IAssistantData, AssistantDataReader>();
         services.AddSingleton<IAuditLogger, AuditLogger>();

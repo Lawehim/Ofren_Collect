@@ -4,6 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OfrenCollect.Application.Abstractions.Persistence;
 using OfrenCollect.Application.Reconciliation.HandleTransactionNotification;
+using OfrenCollect.Application.Refunds.ResolveRefund;
+using OfrenCollect.Domain.Webhooks;
 
 namespace OfrenCollect.Infrastructure.Jobs;
 
@@ -60,12 +62,23 @@ public sealed class InboxDrainer : BackgroundService
 
         foreach (var message in messages)
         {
-            await mediator.Send(
-                new HandleTransactionNotificationCommand(message.TransactionReference, message.DestinationAccountNumber),
-                cancellationToken);
+            await DispatchAsync(mediator, message, cancellationToken);
             message.MarkProcessed(_clock.GetUtcNow());
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
     }
+
+    private static Task DispatchAsync(ISender mediator, InboxMessage message, CancellationToken cancellationToken) =>
+        message.EventType switch
+        {
+            WebhookEventType.TransactionCompletion => mediator.Send(
+                new HandleTransactionNotificationCommand(
+                    message.TransactionReference!, message.DestinationAccountNumber!),
+                cancellationToken),
+            WebhookEventType.RefundCompletion => mediator.Send(
+                new ResolveRefundCommand(message.RefundReference!),
+                cancellationToken),
+            _ => Task.CompletedTask,
+        };
 }

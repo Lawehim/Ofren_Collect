@@ -64,3 +64,21 @@ export interface AssistantAnswer {
   grounded: boolean;
   intent: string;
 }
+
+export interface TransactionRow {
+  transactionReference: string;
+  customerName: string;
+  amount: number;
+  refundedAmount: number;
+  refundableAmount: number;
+  reservedAccountNumber: string;
+  paidAt: string;
+}
+
+export interface RefundResult {
+  id: string;
+  refundReference: string;
+  originalTransactionReference: string;
+  amount: number;
+  status: string;
+}

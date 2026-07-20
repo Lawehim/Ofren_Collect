@@ -605,3 +605,53 @@ Could NOT fully confirm (verify against live sandbox before coding to these):
 - **v1 `verify_by_reference` vs v2 `/transactions/{ref}`:** both appear in current docs; the exact
   response field set for `verify_by_reference` (`settlementAmount`, `paymentSourceInformation`) was
   summarized from the dev-portal page, not quoted verbatim.
+
+---
+
+## Refund API (FR-11 — CONFIRMED 2026-07-20)
+
+Source: `https://developers.monnify.com/docs/collections/manage-payments/refunds` and the dev-portal
+API reference (`POST /api/v1/refunds/initiate-refund`), confirmed against a full request/response
+sample.
+
+**Endpoints** (both Bearer JWT from `/api/v1/auth/login`):
+- Initiate: `POST {baseUrl}/api/v1/refunds/initiate-refund`
+- Get status: `GET {baseUrl}/api/v1/refunds/{refundReference}` — same `responseBody` shape as initiate,
+  used to **re-verify** a refund's status server-side rather than trusting the webhook (§8).
+
+**Confirmed request fields** (initiate a refund):
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `transactionReference` | string | yes | reference of the original payment being refunded |
+| `refundReference` | string | yes | caller-supplied unique id for this refund — our idempotency key |
+| `refundAmount` | number | yes | ₦100 minimum, up to the full transaction amount |
+| `refundReason` | string | yes | internal reason, max 64 chars |
+| `customerNote` | string | yes | credit-alert narration, max 16 chars |
+| `destinationAccountNumber` | string | no | defaults to the originating account if omitted |
+| `destinationAccountBankCode` | string | no | required only if a destination account is given |
+
+**Confirmed response** — standard `{ requestSuccessful, responseMessage, responseCode, responseBody }`
+envelope. `responseBody` fields: `refundReference`, `reference` (Monnify's `TRFD|...` id),
+`transactionReference`, `refundReason`, `customerNote`, `refundAmount`, `refundType`
+(`PARTIAL_REFUND` / `FULL_REFUND`), `refundStatus`, `refundStrategy` (e.g. `MERCHANT_WALLET`),
+`comment`, `createdOn`, `destinationAccountName`, `destinationAccountNumber`, `destinationBankName`,
+`currencyCode`. A 404 returns `requestSuccessful: false` with a `responseMessage`.
+
+**Confirmed refund status values:** `PENDING`, `COMPLETED`, `FAILED`. (Note: the initiate response
+may return `COMPLETED` with `comment: "Transaction refund is in progress."` — treat the
+`SUCCESSFUL_REFUND` / `FAILED_REFUND` webhook as the authoritative terminal signal.)
+
+**Confirmed webhook events:** `SUCCESSFUL_REFUND`, `FAILED_REFUND`.
+
+**Our client** ([MonnifyClient.InitiateRefundAsync](../../src/OfrenCollect.Infrastructure/Monnify/MonnifyClient.cs))
+sends the five required fields and omits the optional `destinationAccount*` (so refunds return to the
+originating account), then maps `refundStatus` → `MonnifyRefundStatus`.
+
+**FR-11.4 design:** the `SUCCESSFUL_REFUND` / `FAILED_REFUND` webhook is treated only as a *trigger* —
+the drainer calls **Get status** to re-verify and acts on that, never on the webhook body (§8), exactly
+as transaction reconciliation re-verifies with the transaction-status endpoint.
+
+**Still to confirm:** the refund webhook payload shape (`eventType`/`eventData` nesting, which field
+carries our `refundReference`) — inspect a real sandbox refund webhook. Only the `refundReference`
+extraction depends on this; the status itself comes from the confirmed Get-status endpoint.

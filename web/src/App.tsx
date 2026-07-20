@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { PlansPage } from './pages/PlansPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { TransactionsPage } from './pages/TransactionsPage';
 
 function AppLayout() {
   return (
@@ -25,6 +26,7 @@ export function App() {
       <Route path="/login" element={auth ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={auth ? <AppLayout /> : <Navigate to="/login" replace />}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/plans" element={<PlansPage />} />
         <Route path="/customers" element={<CustomersPage />} />
       </Route>

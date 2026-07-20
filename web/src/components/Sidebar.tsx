@@ -30,6 +30,12 @@ export function Sidebar() {
           </svg>
           Dashboard
         </NavLink>
+        <NavLink to="/transactions" className={linkClass}>
+          <svg viewBox="0 0 24 24">
+            <path d="M4 7h16M4 12h16M4 17h10" />
+          </svg>
+          Transactions
+        </NavLink>
         <NavLink to="/customers" className={linkClass}>
           <svg viewBox="0 0 24 24">
             <path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

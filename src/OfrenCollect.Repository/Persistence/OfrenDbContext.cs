@@ -6,6 +6,7 @@ using OfrenCollect.Domain.Customers;
 using OfrenCollect.Domain.Invoices;
 using OfrenCollect.Domain.Payments;
 using OfrenCollect.Domain.Plans;
+using OfrenCollect.Domain.Refunds;
 using OfrenCollect.Domain.Subscriptions;
 using OfrenCollect.Domain.Tenants;
 using OfrenCollect.Domain.Users;
@@ -41,6 +42,7 @@ public sealed class OfrenDbContext : DbContext
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
+    public DbSet<Refund> Refunds => Set<Refund>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
@@ -65,6 +67,7 @@ public sealed class OfrenDbContext : DbContext
         ConfigureSubscription(modelBuilder);
         ConfigureInvoice(modelBuilder);
         ConfigurePaymentEvent(modelBuilder);
+        ConfigureRefund(modelBuilder);
         ConfigureAuditEntry(modelBuilder);
         ConfigureInboxMessage(modelBuilder);
     }
@@ -73,8 +76,13 @@ public sealed class OfrenDbContext : DbContext
         modelBuilder.Entity<InboxMessage>(b =>
         {
             b.HasKey(m => m.Id);
-            b.Property(m => m.TransactionReference).HasMaxLength(ShortText).IsRequired();
-            b.Property(m => m.DestinationAccountNumber).HasMaxLength(ShortText).IsRequired();
+            b.Property(m => m.EventType).HasConversion<string>().HasMaxLength(ShortText);
+            // Nullable: which references are populated depends on the event type.
+            b.Property(m => m.TransactionReference).HasMaxLength(ShortText);
+            b.Property(m => m.DestinationAccountNumber).HasMaxLength(ShortText);
+            b.Property(m => m.RefundReference).HasMaxLength(ShortText);
+            // RefundSucceeded is intentionally not stored: the refund status is re-verified with
+            // Monnify, never taken from the webhook body (§8, FR-11.4).
             b.Property(m => m.RawPayload).IsRequired();
             b.HasIndex(m => m.ProcessedAt);
         });
@@ -167,6 +175,21 @@ public sealed class OfrenDbContext : DbContext
             b.HasIndex(p => p.MonnifyTransactionReference).IsUnique();
             // PaymentEvent carries a nullable tenant (unmatched inflows have none) and is
             // deliberately not covered by the global tenant filter; its reads scope explicitly.
+        });
+
+    private void ConfigureRefund(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<Refund>(b =>
+        {
+            b.HasKey(r => r.Id);
+            b.Property(r => r.OriginalTransactionReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(r => r.RefundReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(r => r.Reason).HasMaxLength(ShortText).IsRequired();
+            b.Property(r => r.Status).HasConversion<string>().HasMaxLength(ShortText);
+            ConfigureMoney(b.ComplexProperty(r => r.Amount), "Amount");
+            b.HasIndex(r => r.OriginalTransactionReference);
+            // The refund reference is the idempotency key (FR-11.3).
+            b.HasIndex(r => r.RefundReference).IsUnique();
+            ApplyTenantFilter(b);
         });
 
     private static void ConfigureMoney(

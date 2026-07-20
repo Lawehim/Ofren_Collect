@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,10 +11,11 @@ using OfrenCollect.Infrastructure.Monnify;
 namespace OfrenCollect.Api.Controllers;
 
 /// <summary>
-/// Receives Monnify transaction notifications. Verifies the signature (fail-closed), persists the
-/// notification durably, then acknowledges with 200 — the background drainer reconciles it
-/// (FR-3.2, NFR-2.6). Authenticated by signature, not a JWT: it is called by Monnify. The drainer
-/// re-verifies each transaction with Monnify, so the webhook body is never trusted on its own.
+/// Receives Monnify transaction and refund notifications. Verifies the signature (fail-closed),
+/// persists the notification durably, then acknowledges with 200 — the background drainer processes
+/// it (FR-3.2, FR-11.4, NFR-2.6). Authenticated by signature, not a JWT: it is called by Monnify.
+/// The drainer re-verifies each transaction with Monnify, so the webhook body is never trusted on
+/// its own.
 /// </summary>
 [ApiController]
 [Route("api/webhooks/monnify")]
@@ -22,6 +24,8 @@ namespace OfrenCollect.Api.Controllers;
 public sealed class MonnifyWebhookController : ControllerBase
 {
     private const string SignatureHeader = "monnify-signature";
+    private const string RefundSucceededEvent = "SUCCESSFUL_REFUND";
+    private const string RefundFailedEvent = "FAILED_REFUND";
 
     private readonly IInboxRepository _inbox;
     private readonly IUnitOfWork _unitOfWork;
@@ -55,21 +59,20 @@ public sealed class MonnifyWebhookController : ControllerBase
             return Unauthorized();
         }
 
-        // Persist durably before acknowledging so a crash cannot lose the payment (NFR-2.6);
-        // the drainer reconciles it. An unrecognisable body is acknowledged and ignored (TC-3.7).
-        if (TryExtract(rawBody, out var reference, out var accountNumber))
+        // Persist durably before acknowledging so a crash cannot lose the notification (NFR-2.6);
+        // the drainer processes it. An unrecognisable body is acknowledged and ignored (TC-3.7).
+        if (TryBuildMessage(rawBody, _clock.GetUtcNow(), out var message))
         {
-            _inbox.Add(InboxMessage.Receive(reference, accountNumber, rawBody, _clock.GetUtcNow()));
+            _inbox.Add(message);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         return Ok();
     }
 
-    private static bool TryExtract(string rawBody, out string reference, out string accountNumber)
+    private static bool TryBuildMessage(string rawBody, DateTimeOffset receivedAt, [NotNullWhen(true)] out InboxMessage? message)
     {
-        reference = string.Empty;
-        accountNumber = string.Empty;
+        message = null;
 
         try
         {
@@ -85,8 +88,27 @@ public sealed class MonnifyWebhookController : ControllerBase
                 ? eventData
                 : root;
 
-            TryReadString(scope, "transactionReference", out reference);
+            TryReadString(root, "eventType", out var eventType);
 
+            if (string.Equals(eventType, RefundSucceededEvent, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(eventType, RefundFailedEvent, StringComparison.OrdinalIgnoreCase))
+            {
+                // Refund completion (FR-11.4): store only the reference — the drainer re-verifies the
+                // status with Monnify, so the claimed outcome in the body is never trusted (§8). NOTE:
+                // the refundReference location in the payload is assumed; confirm against sandbox (§14).
+                if (TryReadString(scope, "refundReference", out var refundReference))
+                {
+                    message = InboxMessage.ReceiveRefund(refundReference, rawBody, receivedAt);
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Transaction completion.
+            TryReadString(scope, "transactionReference", out var reference);
+
+            var accountNumber = string.Empty;
             if (scope.TryGetProperty("destinationAccountInformation", out var destination))
             {
                 TryReadString(destination, "accountNumber", out accountNumber);
@@ -96,7 +118,13 @@ public sealed class MonnifyWebhookController : ControllerBase
                 TryReadString(scope, "destinationAccountNumber", out accountNumber);
             }
 
-            return reference.Length > 0 && accountNumber.Length > 0;
+            if (reference.Length > 0 && accountNumber.Length > 0)
+            {
+                message = InboxMessage.Receive(reference, accountNumber, rawBody, receivedAt);
+                return true;
+            }
+
+            return false;
         }
         catch (JsonException)
         {

@@ -15,7 +15,7 @@ namespace OfrenCollect.Infrastructure.Monnify;
 /// (base URL, resilience) by the composition root. Contract details are grounded in
 /// docs/integrations/monnify-sandbox-notes.md.
 /// </summary>
-public sealed class MonnifyClient : IMonnifyClient, IDisposable
+public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IDisposable
 {
     // Statuses that mean money actually landed and should be reconciled. PARTIALLY_PAID is
     // included: it is a real inflow that reconciles to an Underpaid invoice.
@@ -96,6 +96,55 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
 
         return new ReservedAccount(account.AccountNumber, account.BankName);
     }
+
+    public async Task<RefundInitiationResult> InitiateRefundAsync(
+        RefundInitiationRequest request, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var requestBody = new InitiateRefundRequestBody(
+            request.OriginalTransactionReference,
+            request.RefundReference,
+            request.Amount.Amount,
+            request.Reason,
+            request.CustomerNote);
+
+        // Endpoint and request/response shape confirmed against the Monnify docs (see
+        // monnify-sandbox-notes.md, "Refund API"). Isolated here so any future change touches one
+        // file (§2.3, §14).
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/refunds/initiate-refund")
+        {
+            Content = JsonContent.Create(requestBody, options: JsonOptions)
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<RefundResponseBody>(response, cancellationToken);
+
+        return new RefundInitiationResult(MapRefundStatus(body.RefundStatus));
+    }
+
+    public async Task<MonnifyRefundStatus> GetRefundStatusAsync(
+        string refundReference, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var encodedReference = Uri.EscapeDataString(refundReference);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/refunds/{encodedReference}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<RefundResponseBody>(response, cancellationToken);
+
+        return MapRefundStatus(body.RefundStatus);
+    }
+
+    private static MonnifyRefundStatus MapRefundStatus(string? status) => status?.ToUpperInvariant() switch
+    {
+        "COMPLETED" => MonnifyRefundStatus.Completed,
+        "FAILED" => MonnifyRefundStatus.Failed,
+        _ => MonnifyRefundStatus.Pending,
+    };
 
     private async Task<string> GetAccessTokenAsync(CancellationToken cancellationToken)
     {
@@ -221,4 +270,14 @@ public sealed class MonnifyClient : IMonnifyClient, IDisposable
     private sealed record AccountBody(
         [property: JsonPropertyName("accountNumber")] string AccountNumber,
         [property: JsonPropertyName("bankName")] string BankName);
+
+    private sealed record InitiateRefundRequestBody(
+        [property: JsonPropertyName("transactionReference")] string TransactionReference,
+        [property: JsonPropertyName("refundReference")] string RefundReference,
+        [property: JsonPropertyName("refundAmount")] decimal RefundAmount,
+        [property: JsonPropertyName("refundReason")] string RefundReason,
+        [property: JsonPropertyName("customerNote")] string CustomerNote);
+
+    private sealed record RefundResponseBody(
+        [property: JsonPropertyName("refundStatus")] string? RefundStatus);
 }

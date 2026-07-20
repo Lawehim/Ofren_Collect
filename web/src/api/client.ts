@@ -4,7 +4,9 @@ import type {
   CustomerResponse,
   DashboardResponse,
   PlanResponse,
+  RefundResult,
   SubscriptionResponse,
+  TransactionRow,
 } from '../types/models';
 
 export const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:5080';
@@ -78,4 +80,11 @@ export const api = {
 
   askAssistant: (token: string, question: string) =>
     request<AssistantAnswer>('/api/assistant/ask', { method: 'POST', body: { question }, token }),
+
+  listTransactions: (token: string) => request<TransactionRow[]>('/api/transactions', { token }),
+
+  initiateRefund: (
+    token: string,
+    body: { originalTransactionReference: string; amount: number; reason: string; refundReference: string },
+  ) => request<RefundResult>('/api/refunds', { method: 'POST', body, token }),
 };

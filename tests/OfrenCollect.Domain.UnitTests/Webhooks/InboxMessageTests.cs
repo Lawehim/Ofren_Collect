@@ -39,4 +39,31 @@ public class InboxMessageTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void Receive_IsTaggedAsTransactionCompletion()
+    {
+        var message = InboxMessage.Receive("MNFY|1", "4003115967", "{}", ReceivedAt);
+
+        message.EventType.Should().Be(WebhookEventType.TransactionCompletion);
+    }
+
+    [Fact]
+    public void ReceiveRefund_StoresRefundReference_TaggedAsRefundCompletion()
+    {
+        var message = InboxMessage.ReceiveRefund("OFREN-RF-1", "{\"raw\":true}", ReceivedAt);
+
+        message.EventType.Should().Be(WebhookEventType.RefundCompletion);
+        message.RefundReference.Should().Be("OFREN-RF-1");
+        message.TransactionReference.Should().BeNull();
+        message.IsProcessed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ReceiveRefund_WithBlankReference_Throws()
+    {
+        var act = () => InboxMessage.ReceiveRefund("", "{}", ReceivedAt);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }
