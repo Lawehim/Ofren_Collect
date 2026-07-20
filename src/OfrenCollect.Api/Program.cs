@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using OfrenCollect.Api.Auth;
@@ -24,6 +25,13 @@ const string SpaCorsPolicy = "spa";
 const string AuthRateLimitPolicy = "auth";
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Hosts like Render/Koyeb inject the port to listen on via PORT.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 builder.Host.UseSerilog((context, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration)
@@ -134,9 +142,20 @@ await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().SeedAsync(CancellationToken.None);
 }
 
+// Behind the host's TLS-terminating proxy: trust the forwarded scheme/IP.
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto,
+});
+
 app.UseMiddleware<AuditLoggingMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
-app.UseHttpsRedirection();
+
+// The edge proxy already serves HTTPS in production; redirecting there causes loops.
+if (!app.Environment.IsProduction())
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors(SpaCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();

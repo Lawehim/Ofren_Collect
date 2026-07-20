@@ -1,0 +1,35 @@
+# Render Blueprint for the Ofren Collect API (Docker).
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo. Then fill the
+# secret env vars (marked sync:false) in the dashboard. Database is Neon (separate).
+services:
+  - type: web
+    name: ofren-collect-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Jwt__Issuer
+        value: ofren-collect
+      - key: Jwt__Audience
+        value: ofren-collect-api
+      - key: Monnify__BaseUrl
+        value: https://sandbox.monnify.com
+      # Sandbox does not send the signature header; server-side verification still applies.
+      - key: Monnify__VerifyWebhookSignature
+        value: "false"
+      # --- secrets & environment-specific values: set these in the Render dashboard ---
+      - key: ConnectionStrings__OfrenDb   # Neon connection string (Npgsql format, SSL Mode=Require)
+        sync: false
+      - key: Jwt__SigningKey              # a long random secret
+        sync: false
+      - key: Cors__Origin                 # your Vercel/Netlify SPA URL, e.g. https://ofren.vercel.app
+        sync: false
+      - key: Monnify__ApiKey
+        sync: false
+      - key: Monnify__SecretKey
+        sync: false
+      - key: Monnify__ContractCode
+        sync: false

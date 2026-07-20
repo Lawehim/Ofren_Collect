@@ -1,0 +1,17 @@
+# Build outputs and local cruft — keep the build context small and clean.
+**/bin/
+**/obj/
+**/.vs/
+**/TestResults/
+
+# The web SPA is deployed separately (Vercel/Netlify), not in this image.
+web/
+
+# Tests aren't needed in the runtime image.
+tests/
+
+# Docs, git, local env.
+.git/
+.github/
+.env
+*.md

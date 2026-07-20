@@ -148,6 +148,12 @@ payment reconcile:
 See [`docs/integrations/monnify-sandbox-notes.md`](docs/integrations/monnify-sandbox-notes.md)
 for the confirmed sandbox contracts and the webhook signature scheme.
 
+## Deploy (free)
+
+Host it on a free stack — **Neon** (Postgres) + **Render** (the Dockerised API) + **Vercel**
+(the SPA). The root [`Dockerfile`](Dockerfile) and [`render.yaml`](render.yaml) are ready;
+step-by-step instructions are in [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
 ## Tests
 
 ```bash
