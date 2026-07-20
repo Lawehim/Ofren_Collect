@@ -41,7 +41,4 @@ public sealed class AssistantDataReader : IAssistantData
 
     public Task<int> ActiveSubscriptionCountAsync(CancellationToken cancellationToken) =>
         _db.Subscriptions.AsNoTracking().CountAsync(s => s.Status == SubscriptionStatus.Active, cancellationToken);
-
-    public Task<int> UnmatchedPaymentCountAsync(CancellationToken cancellationToken) =>
-        _db.PaymentEvents.IgnoreQueryFilters().AsNoTracking().CountAsync(p => p.TenantId == null, cancellationToken);
 }

@@ -1,0 +1,129 @@
+name: CI
+
+# The compulsory gate from CLAUDE.md §13: build, format, all tests, and the >=90% coverage
+# floor must all pass. Only when they do (on main) does deployment proceed automatically.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  COVERAGE_MIN: 90 # line & branch floor (CLAUDE.md §4.2) — never lower this to go green (§13)
+
+jobs:
+  build-test:
+    name: Build, format, test & coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET (from global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore OfrenCollect.slnx
+
+      - name: Build (Release, warnings-as-errors)
+        run: dotnet build OfrenCollect.slnx --configuration Release --no-restore
+
+      - name: Format check (dotnet format)
+        run: dotnet format OfrenCollect.slnx --verify-no-changes --no-restore --severity error
+
+      # Docker is preinstalled on ubuntu-latest, so the Testcontainers PostgreSQL
+      # integration tests run here exactly as they do locally.
+      - name: Test with coverage
+        run: >
+          dotnet test OfrenCollect.slnx
+          --configuration Release --no-build
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
+          --settings coverlet.runsettings
+
+      - name: Enforce coverage floor
+        run: |
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          reportgenerator \
+            -reports:"./TestResults/**/coverage.cobertura.xml" \
+            -targetdir:./CoverageReport \
+            -reporttypes:"JsonSummary;TextSummary;MarkdownSummaryGithub"
+          echo "----- Coverage summary -----"
+          cat ./CoverageReport/Summary.txt
+          cat ./CoverageReport/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY" || true
+          line=$(jq -r '.summary.linecoverage' ./CoverageReport/Summary.json)
+          branch=$(jq -r '.summary.branchcoverage' ./CoverageReport/Summary.json)
+          echo "Line coverage:   $line% (min ${COVERAGE_MIN}%)"
+          echo "Branch coverage: $branch% (min ${COVERAGE_MIN}%)"
+          fail=0
+          awk "BEGIN{exit !($line < $COVERAGE_MIN)}" && { echo "::error::Line coverage $line% is below ${COVERAGE_MIN}%"; fail=1; }
+          awk "BEGIN{exit !($branch < $COVERAGE_MIN)}" && { echo "::error::Branch coverage $branch% is below ${COVERAGE_MIN}%"; fail=1; }
+          exit $fail
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./CoverageReport
+          if-no-files-found: ignore
+
+  web-build:
+    name: Build SPA (type-check + bundle)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check & build
+        run: npm run build
+
+  # Deployment proceeds automatically only after the compulsory gate passes, and only for
+  # pushes to main. Each target fires via a deploy hook stored as a repo secret; if a secret
+  # is not set, that target is skipped (so the gate still works without full deploy wiring).
+  deploy:
+    name: Deploy (after green)
+    needs: [build-test, web-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render (API) deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL not set — skipping API deploy."
+          else
+            curl -fsS -X POST "$HOOK" && echo "Render deploy triggered."
+          fi
+
+      - name: Trigger Vercel (SPA) deploy
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL not set — skipping SPA deploy."
+          else
+            curl -fsS -X POST "$HOOK" && echo "Vercel deploy triggered."
+          fi

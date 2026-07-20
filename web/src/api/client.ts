@@ -1,4 +1,5 @@
 import type {
+  AssistantAnswer,
   AuthResult,
   CustomerResponse,
   DashboardResponse,
@@ -74,4 +75,7 @@ export const api = {
 
   enrolCustomer: (token: string, body: { customerId: string; planId: string }) =>
     request<SubscriptionResponse>('/api/subscriptions', { method: 'POST', body, token }),
+
+  askAssistant: (token: string, question: string) =>
+    request<AssistantAnswer>('/api/assistant/ask', { method: 'POST', body: { question }, token }),
 };

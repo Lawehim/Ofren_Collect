@@ -20,8 +20,10 @@ public class LlmIntentClassifierTests
     [InlineData("overdue_customers", CollectionsIntent.OverdueCustomers)]
     [InlineData("underpaid_customers", CollectionsIntent.UnderpaidCustomers)]
     [InlineData("active_subscriptions", CollectionsIntent.ActiveSubscriptions)]
-    [InlineData("unmatched_payments", CollectionsIntent.UnmatchedPayments)]
     [InlineData("i cannot help with that", CollectionsIntent.Unknown)]
+    // Unmatched inflows are tenant-less orphans; the tenant-facing assistant must not surface a
+    // cross-tenant figure, so that wording is no longer a recognised intent (declined instead).
+    [InlineData("unmatched_payments", CollectionsIntent.Unknown)]
     public async Task Classify_MapsModelReplyToIntent(string content, CollectionsIntent expected)
     {
         var result = await CreateClassifier(content).ClassifyAsync("question", CancellationToken.None);

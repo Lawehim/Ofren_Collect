@@ -6,9 +6,10 @@ using OfrenCollect.Domain.Subscriptions;
 namespace OfrenCollect.Repository.Persistence;
 
 /// <summary>
-/// Builds the dashboard projection for the current tenant. Reads are tenant-scoped by the
-/// global query filter; only the unmatched-inflow count reaches across (those are tenant-less
-/// orphans, not another tenant's data).
+/// Builds the dashboard projection for the current tenant. Every read is tenant-scoped by the
+/// global query filter — nothing reaches across tenants. Tenant-less unmatched inflows are an
+/// operator-level concern and are deliberately not surfaced here (they would be the same figure
+/// for every tenant).
 /// </summary>
 public sealed class DashboardReader : IDashboardReader
 {
@@ -49,10 +50,7 @@ public sealed class DashboardReader : IDashboardReader
 
         var collectedThisPeriod = invoices.Sum(i => i.AmountPaid.Amount);
         var overdueCount = subscriptions.Count(s => s.Status == SubscriptionStatus.Overdue);
-        var unmatchedCount = await _db.PaymentEvents
-            .IgnoreQueryFilters()
-            .CountAsync(p => p.TenantId == null, cancellationToken);
 
-        return new DashboardResponse(rows, new DashboardSummary(collectedThisPeriod, overdueCount, unmatchedCount));
+        return new DashboardResponse(rows, new DashboardSummary(collectedThisPeriod, overdueCount));
     }
 }

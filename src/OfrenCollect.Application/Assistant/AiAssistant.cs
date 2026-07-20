@@ -48,10 +48,6 @@ public sealed class AiAssistant : IAiAssistant
                 intent,
                 Have(await _data.ActiveSubscriptionCountAsync(cancellationToken), "active subscription")),
 
-            CollectionsIntent.UnmatchedPayments => Grounded(
-                intent,
-                Have(await _data.UnmatchedPaymentCountAsync(cancellationToken), "unmatched payment")),
-
             _ => new AssistantAnswer(Declined, Grounded: false, nameof(CollectionsIntent.Unknown)),
         };
     }

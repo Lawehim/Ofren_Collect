@@ -20,5 +20,4 @@ public sealed record DashboardSubscriptionRow(
 /// <summary>Headline figures across the tenant's collections.</summary>
 public sealed record DashboardSummary(
     decimal CollectedThisPeriod,
-    int OverdueCount,
-    int UnmatchedCount);
+    int OverdueCount);

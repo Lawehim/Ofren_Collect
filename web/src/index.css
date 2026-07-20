@@ -163,6 +163,28 @@ tbody tr:hover { background: #fcfbf8; }
 .empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 14px; }
 .center-note { display: grid; place-items: center; min-height: 100vh; color: var(--muted); }
 
+.assistant { margin-bottom: 24px; }
+.assistant-tag { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2); font-weight: 600; }
+.assistant-body { padding: 18px 20px 16px; }
+.assistant-ask { display: flex; gap: 10px; }
+.assistant-ask input { flex: 1; border: 1px solid var(--line-2); border-radius: 10px; padding: 11px 13px; font-size: 14px; font-family: var(--font-body); color: var(--ink); outline: 0; transition: 0.15s; background: #fdfcfa; }
+.assistant-ask input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px var(--accent-soft); }
+.assistant-ask input::placeholder { color: var(--muted-2); }
+.assistant-ask .btn.primary { padding: 11px 20px; }
+.assistant-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { border: 1px solid var(--line-2); background: var(--card); color: var(--muted); font-size: 12.5px; font-family: var(--font-body); padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: 0.15s; }
+.chip:hover:not(:disabled) { border-color: var(--ink-soft); color: var(--ink); }
+.chip:disabled { opacity: 0.55; cursor: default; }
+.assistant-answer { margin-top: 16px; padding: 14px 16px; border-radius: var(--radius-sm); font-size: 14px; line-height: 1.5; border: 1px solid var(--line); background: var(--paper); }
+.assistant-answer p { margin-top: 6px; color: var(--text); }
+.assistant-answer.grounded { background: var(--paid-soft); border-color: #cfe6dc; }
+.assistant-answer.declined { background: #eef1f5; border-color: var(--line-2); }
+.assistant-answer.err { background: var(--rose-soft); border-color: #eccdc9; color: #8a2a2a; }
+.assistant-badge { font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
+.assistant-answer.grounded .assistant-badge { color: var(--paid-ink); }
+.assistant-answer.declined .assistant-badge { color: var(--muted); }
+.assistant-note { margin-top: 14px; font-size: 12px; color: var(--muted-2); line-height: 1.5; }
+
 @media (max-width: 920px) {
   .app { grid-template-columns: 1fr; }
   .side { display: none; }

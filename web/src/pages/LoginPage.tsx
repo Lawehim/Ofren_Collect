@@ -9,8 +9,8 @@ export function LoginPage() {
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [businessName, setBusinessName] = useState('');
-  const [email, setEmail] = useState('ada@brightpath.ng');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -96,7 +96,7 @@ export function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ada@brightpath.ng"
+              placeholder="you@business.com"
               required
             />
           </div>

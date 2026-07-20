@@ -21,7 +21,6 @@ public sealed class LlmIntentClassifier : IIntentClassifier
         + "- overdue_customers: which/how many subscriptions are overdue\n"
         + "- underpaid_customers: which/how many invoices are underpaid\n"
         + "- active_subscriptions: how many active subscriptions there are\n"
-        + "- unmatched_payments: how many payments are unmatched\n"
         + "- unknown: anything else, OR any request to create, change, cancel, refund, or move "
         + "money (you are read-only and must never act).\n"
         + "Reply with one keyword only.";
@@ -74,7 +73,6 @@ public sealed class LlmIntentClassifier : IIntentClassifier
         if (text.Contains("overdue", StringComparison.Ordinal)) return CollectionsIntent.OverdueCustomers;
         if (text.Contains("underpaid", StringComparison.Ordinal)) return CollectionsIntent.UnderpaidCustomers;
         if (text.Contains("active_subscriptions", StringComparison.Ordinal)) return CollectionsIntent.ActiveSubscriptions;
-        if (text.Contains("unmatched", StringComparison.Ordinal)) return CollectionsIntent.UnmatchedPayments;
         return CollectionsIntent.Unknown;
     }
 

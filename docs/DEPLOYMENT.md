@@ -39,7 +39,18 @@ Set these **environment variables** (dashboard → Environment):
 | `Monnify__ApiKey` / `Monnify__SecretKey` / `Monnify__ContractCode` | your sandbox keys |
 | `Monnify__VerifyWebhookSignature` | `false` (sandbox doesn't send the signature) |
 
+Optional — to enable the **AI assistant** (grounded, read-only) with a free hosted model:
+
+| Key | Value |
+|-----|-------|
+| `Ai__Enabled` | `true` |
+| `Ai__BaseUrl` | `https://api.groq.com/openai` (Groq — free key at [console.groq.com](https://console.groq.com)) |
+| `Ai__Model` | `llama-3.1-8b-instant` |
+| `Ai__ApiKey` | your Groq API key (secret) |
+
 > Note the **double underscores** — that's how ASP.NET maps env vars to `Section:Key`.
+> The model only classifies a question into a fixed intent; it never sees tenant data, so a
+> small/free model is plenty. Leave `Ai__Enabled` unset to run the disabled no-op assistant.
 
 Deploy, then copy the service URL, e.g. `https://ofren-collect-api.onrender.com`. Check `…/health`.
 
@@ -66,7 +77,34 @@ https://<your-render-app>.onrender.com/api/webhooks/monnify
 
 A sandbox payment into a reserved account now reconciles automatically and the dashboard badge flips live.
 
-## 6. (Optional) Keep it awake
+## 6. Continuous deployment — CI-gated (GitHub Actions)
+
+The workflow in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs the compulsory gate
+on every push/PR to `main` (build, `dotnet format`, all tests on real Postgres, the **≥90% coverage
+floor**, and the SPA type-check/build). Deployment fires **only after that gate is green**, on
+pushes to `main`. Wire it once:
+
+1. **Create deploy hooks** (a URL that triggers a build when POSTed to):
+   - **Render** → your service → *Settings → Deploy Hook* → copy the URL.
+   - **Vercel** → project → *Settings → Git → Deploy Hooks* → create one for `main` → copy the URL.
+2. **Add them as GitHub Actions secrets** (repo → *Settings → Secrets and variables → Actions*):
+   - `RENDER_DEPLOY_HOOK_URL`
+   - `VERCEL_DEPLOY_HOOK_URL`
+
+   > If a secret is absent, that target is simply skipped — the gate still runs. So you can wire
+   > one, both, or neither.
+3. **Turn off each platform's native git auto-deploy** so CI is the *only* path to production
+   (otherwise a red build would still deploy):
+   - **Render** → *Settings → Build & Deploy → Auto-Deploy → No*.
+   - **Vercel** → *Settings → Git → Ignored Build Step* → set to `exit 0` (never build on push),
+     leaving the deploy hook as the trigger.
+
+After this, every push to `main` must pass build + format + tests + 90% coverage before Render and
+Vercel are told to deploy. A red gate blocks the release.
+
+> **Reminder (CLAUDE.md §13):** never lower `COVERAGE_MIN` or skip a test to go green — fix the cause.
+
+## 7. (Optional) Keep it awake
 
 Render's free service sleeps after ~15 min idle (cold start ~30–60s, and Monnify's first webhook may hit a cold instance — the durable inbox + Monnify retries recover it). To keep it warm for a demo, add a free monitor (e.g. [UptimeRobot](https://uptimerobot.com)) pinging `https://<app>.onrender.com/health` every 5–10 minutes.
 

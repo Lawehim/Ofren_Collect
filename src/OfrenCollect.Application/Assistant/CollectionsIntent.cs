@@ -11,6 +11,5 @@ public enum CollectionsIntent
     CollectedThisWeek,
     OverdueCustomers,
     UnderpaidCustomers,
-    ActiveSubscriptions,
-    UnmatchedPayments
+    ActiveSubscriptions
 }

@@ -45,7 +45,6 @@ export interface DashboardSubscriptionRow {
 export interface DashboardSummary {
   collectedThisPeriod: number;
   overdueCount: number;
-  unmatchedCount: number;
 }
 
 export interface DashboardResponse {
@@ -58,4 +57,10 @@ export interface PaymentReconciledEvent {
   invoiceId: string;
   status: string;
   amountPaid: number;
+}
+
+export interface AssistantAnswer {
+  answer: string;
+  grounded: boolean;
+  intent: string;
 }

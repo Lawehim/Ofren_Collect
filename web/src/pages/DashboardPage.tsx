@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../auth/useAuth';
+import { AssistantPanel } from '../components/AssistantPanel';
 import { StatusBadge } from '../components/StatusBadge';
 import { avatarColor, formatAccount, initials, naira } from '../lib/format';
 import { useReconciliationHub } from '../realtime/useReconciliationHub';
@@ -91,6 +92,8 @@ export function DashboardPage() {
           <div className="sub down">Past due date</div>
         </div>
       </div>
+
+      <AssistantPanel />
 
       <div className="panel">
         <div className="panel-head">

@@ -13,6 +13,4 @@ public interface IAssistantData
     Task<int> UnderpaidInvoiceCountAsync(CancellationToken cancellationToken);
 
     Task<int> ActiveSubscriptionCountAsync(CancellationToken cancellationToken);
-
-    Task<int> UnmatchedPaymentCountAsync(CancellationToken cancellationToken);
 }
