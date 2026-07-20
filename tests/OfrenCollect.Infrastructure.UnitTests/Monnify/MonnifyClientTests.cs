@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using FluentAssertions;
+using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Infrastructure.Monnify;
 using OfrenCollect.SharedKernel;
 
@@ -115,6 +116,51 @@ public class MonnifyClientTests
             """{"requestSuccessful":false,"responseMessage":"boom","responseCode":"99","responseBody":null}""");
 
         var act = async () => await client.VerifyTransactionAsync("MNFY|123", CancellationToken.None);
+
+        await act.Should().ThrowAsync<MonnifyException>();
+    }
+
+    private static string RefundJson(string refundStatus) =>
+        "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":{"
+        + "\"refundStatus\":\"" + refundStatus + "\"}}";
+
+    [Theory]
+    [InlineData("COMPLETED", MonnifyRefundStatus.Completed)]
+    [InlineData("FAILED", MonnifyRefundStatus.Failed)]
+    [InlineData("PENDING", MonnifyRefundStatus.Pending)]
+    [InlineData("weird", MonnifyRefundStatus.Pending)]
+    public async Task InitiateRefund_MapsRefundStatus(string status, MonnifyRefundStatus expected)
+    {
+        var client = CreateClient(RefundJson(status));
+
+        var result = await client.InitiateRefundAsync(
+            new OfrenCollect.Application.Abstractions.RefundInitiationRequest(
+                "MNFY|123", "RF-1", Money.Of(1000m), "reason", "note"),
+            CancellationToken.None);
+
+        result.Status.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task GetRefundStatus_MapsFromResponse()
+    {
+        var client = CreateClient(RefundJson("COMPLETED"));
+
+        var status = await client.GetRefundStatusAsync("RF-1", CancellationToken.None);
+
+        status.Should().Be(MonnifyRefundStatus.Completed);
+    }
+
+    [Fact]
+    public async Task GetRefundStatus_WhenHttpError_ThrowsMonnifyException()
+    {
+        var http = new HttpClient(new StubHandler(AuthJson, "{}", HttpStatusCode.NotFound))
+        {
+            BaseAddress = new Uri("https://sandbox.monnify.com")
+        };
+        var client = new MonnifyClient(http, new MonnifyOptions { ApiKey = "key", SecretKey = "secret" }, new FixedClock(Now));
+
+        var act = async () => await client.GetRefundStatusAsync("RF-1", CancellationToken.None);
 
         await act.Should().ThrowAsync<MonnifyException>();
     }

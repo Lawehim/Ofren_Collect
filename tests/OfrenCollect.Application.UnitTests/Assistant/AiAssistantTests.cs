@@ -49,6 +49,32 @@ public class AiAssistantTests
     }
 
     [Fact]
+    public async Task Ask_Underpaid_ReturnsGroundedCount()
+    {
+        GivenIntent(CollectionsIntent.UnderpaidCustomers);
+        _data.UnderpaidInvoiceCountAsync(Arg.Any<CancellationToken>()).Returns(1);
+
+        var answer = await CreateAssistant().AskAsync("who underpaid?", CancellationToken.None);
+
+        answer.Grounded.Should().BeTrue();
+        answer.Answer.Should().Contain("1");
+        answer.Answer.Should().Contain("underpaid");
+    }
+
+    [Fact]
+    public async Task Ask_ActiveSubscriptions_ReturnsGroundedCount()
+    {
+        GivenIntent(CollectionsIntent.ActiveSubscriptions);
+        _data.ActiveSubscriptionCountAsync(Arg.Any<CancellationToken>()).Returns(4);
+
+        var answer = await CreateAssistant().AskAsync("how many active subs?", CancellationToken.None);
+
+        answer.Grounded.Should().BeTrue();
+        answer.Answer.Should().Contain("4");
+        answer.Answer.Should().Contain("active subscription");
+    }
+
+    [Fact]
     public async Task Ask_Unknown_Declines_WithoutInventing_AndTouchesNoData()
     {
         GivenIntent(CollectionsIntent.Unknown);
