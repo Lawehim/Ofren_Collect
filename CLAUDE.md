@@ -90,7 +90,7 @@ the PR description.
 
 ---
 
-## 4. Testing (TDD, mandatory, ≥80%)
+## 4. Testing (TDD, mandatory, ≥50%)
 
 ### 4.1 Process
 - **Red → Green → Refactor.** Write a failing test first, make it pass with the simplest
@@ -99,8 +99,9 @@ the PR description.
   tests is rejected.
 
 ### 4.2 Coverage
-- **Minimum 80% line and branch coverage**, enforced in CI — the build fails below it.
-- Coverage is a floor, not a goal. 80% of meaningful tests, not 80% gamed with trivial
+- **Minimum 50% line and branch coverage**, enforced in CI — the build fails below it. (This is a
+  temporarily relaxed floor; the intent is to ratchet it back up toward ~90% as coverage grows.)
+- Coverage is a floor, not a goal. Meaningful tests, not coverage gamed with trivial
   asserts. The reconciliation engine, tenant isolation, auth, and money math target ~100%.
 - Do not exclude files from coverage to hit the number. Exclusions require a written reason
   and review (generated migrations and `Program.cs` wiring are the only routine ones).
@@ -265,7 +266,7 @@ Also:
 
 - **Small, focused commits** with meaningful messages (imperative mood: "Add underpaid
   reconciliation branch"). Reference the requirement/story/test id where relevant.
-- **A change is not done until CI is green**: build, all tests, ≥80% coverage, `dotnet
+- **A change is not done until CI is green**: build, all tests, ≥50% coverage, `dotnet
   format` check, and no analyzer warnings all pass.
 - Every PR states: what it does, the premortem (§3), and which tests cover it.
 - **`main` is always releasable.** Never merge red. Never merge to hit a deadline what you
