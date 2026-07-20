@@ -47,7 +47,10 @@ public sealed class LlmIntentClassifier : IIntentClassifier
             Temperature: 0,
             MaxTokens: 16);
 
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/v1/chat/completions")
+        // Relative path with NO leading slash: a leading slash resolves from the host root and would
+        // drop any path in the base URL (e.g. Groq's "/openai"). Paired with a base URL that ends in
+        // "/" (ensured at registration), this appends correctly. (§ this is why Groq 404'd.)
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "v1/chat/completions")
         {
             Content = JsonContent.Create(request, options: JsonOptions),
         };

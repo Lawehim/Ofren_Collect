@@ -60,7 +60,10 @@ public static class DependencyInjection
                 {
                     if (!string.IsNullOrWhiteSpace(aiOptions.BaseUrl))
                     {
-                        client.BaseAddress = new Uri(aiOptions.BaseUrl);
+                        // Ensure a trailing slash so a relative request path appends to the base
+                        // path (e.g. Groq's "/openai") instead of replacing it.
+                        var baseUrl = aiOptions.BaseUrl.EndsWith('/') ? aiOptions.BaseUrl : aiOptions.BaseUrl + "/";
+                        client.BaseAddress = new Uri(baseUrl);
                     }
                 })
                 .AddStandardResilienceHandler();

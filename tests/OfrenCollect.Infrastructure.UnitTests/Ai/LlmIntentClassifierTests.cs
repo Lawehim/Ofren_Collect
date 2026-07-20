@@ -44,6 +44,22 @@ public class LlmIntentClassifierTests
         result.Should().Be(CollectionsIntent.Unknown);
     }
 
+    [Fact]
+    public async Task Classify_PreservesBasePath_WhenBaseUrlHasPathSegment()
+    {
+        // Regression: a leading slash on the request path dropped a base path like Groq's "/openai",
+        // producing https://api.groq.com/v1/... (404). The relative path must append to the base.
+        var handler = new StubHandler("{\"choices\":[]}", HttpStatusCode.OK);
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://api.groq.com/openai/") };
+        var classifier = new LlmIntentClassifier(
+            http, new AiOptions { Model = "m", BaseUrl = "https://api.groq.com/openai/" },
+            NullLogger<LlmIntentClassifier>.Instance);
+
+        await classifier.ClassifyAsync("question", CancellationToken.None);
+
+        handler.LastRequestUri.Should().Be("https://api.groq.com/openai/v1/chat/completions");
+    }
+
     private sealed class StubHandler : HttpMessageHandler
     {
         private readonly string _json;
@@ -55,11 +71,16 @@ public class LlmIntentClassifierTests
             _status = status;
         }
 
+        public string? LastRequestUri { get; private set; }
+
         protected override Task<HttpResponseMessage> SendAsync(
-            HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(_status)
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequestUri = request.RequestUri?.ToString();
+            return Task.FromResult(new HttpResponseMessage(_status)
             {
                 Content = new StringContent(_json, Encoding.UTF8, "application/json"),
             });
+        }
     }
 }
