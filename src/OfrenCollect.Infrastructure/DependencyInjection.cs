@@ -39,10 +39,9 @@ public static class DependencyInjection
         services.AddSingleton<IAccountEmailService, AccountEmailService>();
         services.AddHttpClient(EmailDispatcher.HttpClientName, client =>
             {
-                var baseUrl = string.IsNullOrWhiteSpace(emailOptions.ApiBaseUrl)
-                    ? "https://api.brevo.com"
-                    : emailOptions.ApiBaseUrl;
-                client.BaseAddress = new Uri(baseUrl);
+                client.BaseAddress = new Uri(emailOptions.Provider == EmailProvider.Mailtrap
+                    ? "https://sandbox.api.mailtrap.io"
+                    : "https://api.brevo.com");
             })
             .AddStandardResilienceHandler();
         services.AddHostedService<EmailDispatcher>();

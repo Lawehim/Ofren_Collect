@@ -1,9 +1,9 @@
 namespace OfrenCollect.Infrastructure.Email;
 
 /// <summary>
-/// Email configuration. Disabled by default. Uses Brevo's transactional email HTTP API (port 443,
-/// so it works on hosts that block outbound SMTP). The <see cref="ApiKey"/> is a secret and comes
-/// from user-secrets/environment (§9); <see cref="AppBaseUrl"/> is the SPA origin used in links.
+/// Email configuration. Disabled by default. Sends over an HTTP API (port 443, so it works where
+/// outbound SMTP is blocked, e.g. Render). <see cref="ApiKey"/> is a secret (§9);
+/// <see cref="AppBaseUrl"/> is the SPA origin used in links.
 /// </summary>
 public sealed class EmailOptions
 {
@@ -11,12 +11,16 @@ public sealed class EmailOptions
 
     public bool Enabled { get; init; }
 
-    /// <summary>Brevo API key (the "API keys" tab, not the SMTP key). Sent as the <c>api-key</c> header.</summary>
+    /// <summary>Which provider to send through (Brevo for real delivery, Mailtrap for a sandbox inbox).</summary>
+    public EmailProvider Provider { get; init; } = EmailProvider.Brevo;
+
+    /// <summary>Brevo: the "API keys" tab key. Mailtrap: the API token. Sent as the provider's auth header.</summary>
     public string ApiKey { get; init; } = string.Empty;
 
-    public string ApiBaseUrl { get; init; } = "https://api.brevo.com";
+    /// <summary>Mailtrap Sandbox only: the testing inbox id (from the inbox's "Integrations → API" tab).</summary>
+    public string MailtrapInboxId { get; init; } = string.Empty;
 
-    /// <summary>Must be a sender verified in Brevo, or sends are rejected.</summary>
+    /// <summary>Brevo only: must be a sender verified in Brevo, or sends are rejected.</summary>
     public string FromAddress { get; init; } = string.Empty;
 
     public string FromName { get; init; } = "Ofren Collect";
