@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using OfrenCollect.Repository.Persistence;
@@ -12,9 +13,11 @@ using OfrenCollect.Repository.Persistence;
 namespace OfrenCollect.Repository.Persistence.Migrations
 {
     [DbContext(typeof(OfrenDbContext))]
-    partial class OfrenDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721185538_AddMandates")]
+    partial class AddMandates
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -214,70 +217,6 @@ namespace OfrenCollect.Repository.Persistence.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Mandates");
-                });
-
-            modelBuilder.Entity("OfrenCollect.Domain.Mandates.MandateDebit", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTimeOffset>("InitiatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("InvoiceId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("MandateReference")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("PaymentReference")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<Guid>("TenantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("TransactionReference")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.ComplexProperty(typeof(Dictionary<string, object>), "Amount", "OfrenCollect.Domain.Mandates.MandateDebit.Amount#Money", b1 =>
-                        {
-                            b1.IsRequired();
-
-                            b1.Property<decimal>("Amount")
-                                .HasPrecision(18, 2)
-                                .HasColumnType("numeric(18,2)")
-                                .HasColumnName("Amount");
-
-                            b1.Property<string>("Currency")
-                                .IsRequired()
-                                .HasMaxLength(3)
-                                .HasColumnType("character varying(3)")
-                                .HasColumnName("AmountCurrency");
-                        });
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PaymentReference")
-                        .IsUnique();
-
-                    b.HasIndex("TenantId");
-
-                    b.ToTable("MandateDebits");
                 });
 
             modelBuilder.Entity("OfrenCollect.Domain.Payments.PaymentEvent", b =>

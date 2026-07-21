@@ -6,6 +6,7 @@ using OfrenCollect.Infrastructure.Ai;
 using OfrenCollect.Infrastructure.Auth;
 using OfrenCollect.Infrastructure.Email;
 using OfrenCollect.Infrastructure.Jobs;
+using OfrenCollect.Infrastructure.Mandates;
 using OfrenCollect.Infrastructure.Monnify;
 using OfrenCollect.Infrastructure.Refunds;
 
@@ -60,12 +61,29 @@ public static class DependencyInjection
         // MonnifyClient also serves the focused refund boundary; forward to the same typed client
         // so refunds inherit its auth caching and resilience rather than duplicating them.
         services.AddTransient<IMonnifyRefundClient>(sp => (IMonnifyRefundClient)sp.GetRequiredService<IMonnifyClient>());
+        services.AddTransient<IMonnifyMandateClient>(sp => (IMonnifyMandateClient)sp.GetRequiredService<IMonnifyClient>());
 
         var refundsOptions = configuration.GetSection(RefundsOptions.SectionName).Get<RefundsOptions>()
             ?? new RefundsOptions();
         services.AddSingleton(refundsOptions);
 
+        var mandatesOptions = configuration.GetSection(MandatesOptions.SectionName).Get<MandatesOptions>()
+            ?? new MandatesOptions();
+        services.AddSingleton(mandatesOptions);
+        if (mandatesOptions.Enabled)
+        {
+            // Auto-reconciles pending mandate debits (FR-9.4) — only runs when the feature is on.
+            services.AddHostedService<MandateDebitDrainer>();
+        }
+
         services.AddHostedService<InboxDrainer>();
+
+        // Keeps a Render free instance warm by pinging its own public /health (auto-off locally).
+        var keepWarmOptions = configuration.GetSection(KeepWarmOptions.SectionName).Get<KeepWarmOptions>()
+            ?? new KeepWarmOptions();
+        services.AddSingleton(keepWarmOptions);
+        services.AddHttpClient(KeepWarmService.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(10));
+        services.AddHostedService<KeepWarmService>();
 
         // AI assistant (stretch, flag-gated). Off by default -> the NullAiAssistant; when enabled,
         // an OpenAI-compatible model classifies the question and the app grounds the answer.

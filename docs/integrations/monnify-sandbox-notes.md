@@ -655,3 +655,40 @@ as transaction reconciliation re-verifies with the transaction-status endpoint.
 **Still to confirm:** the refund webhook payload shape (`eventType`/`eventData` nesting, which field
 carries our `refundReference`) — inspect a real sandbox refund webhook. Only the `refundReference`
 extraction depends on this; the status itself comes from the confirmed Get-status endpoint.
+
+---
+
+## Direct Debit / Mandate API (FR-9 — CONFIRMED 2026-07-21)
+
+All Bearer JWT from `/api/v1/auth/login`. Standard `{ requestSuccessful, responseMessage, responseCode, responseBody }` envelope.
+
+**Create mandate:** `POST /api/v1/direct-debit/mandate/create`
+- Request (confirmed): `contractCode`, `mandateReference` (our idempotency key), `mandateAmount`,
+  `autoRenew`, `customerCancellation`, `customerName`, `customerPhoneNumber`, `customerEmailAddress`,
+  `customerAddress`, `customerAccountNumber`, `customerAccountBankCode`, `mandateDescription`,
+  `mandateStartDate`/`mandateEndDate` (`YYYY-MM-DDTHH:MM:SS`), optional `redirectUrl`, `debitAmount` (nullable).
+- Response body: `mandateReference`, `mandateCode` (e.g. `MTDD|...` — Monnify's id, returned AT creation),
+  `mandateStatus` = `INITIATED`, `redirectUrl` (customer authorization link). Monnify emails an auth
+  instruction; the customer authorizes via a token payment before the mandate becomes `ACTIVE`.
+
+**Get mandate status:** `GET /api/v1/direct-debit/mandate/?mandateReferences=<ref>` → array with
+`mandateCode`, `mandateReference`, `mandateStatus`, `authorizationLink`, etc.
+
+**Debit mandate:** `POST /api/v1/direct-debit/mandate/debit`
+- Request: `paymentReference` (our idempotency key for the debit), `mandateCode`, `debitAmount`,
+  `narration`, `customerEmail`, optional `incomeSplitConfig`.
+- Response: `transactionStatus` = `PENDING`, **`transactionReference` (`MNFY|...`)**, `paymentReference`.
+  The `transactionReference` reconciles via the existing verify/transaction path.
+
+**Get debit status:** `GET /api/v1/direct-debit/mandate/debit-status?paymentReference=<ref>` →
+`transactionStatus` (`PAID`/...), `transactionReference`, `paymentReference`.
+
+**Cancel mandate:** `PATCH /api/v1/direct-debit/mandate/cancel-mandate/{mandateCode}` →
+`mandateStatus`.
+
+**Mandate statuses:** `INITIATED`/`PENDING`, `ACTIVE`, `FAILED`, `CANCELLED`, `EXPIRED`.
+
+**Still to confirm:** the **Mandate Status Change** webhook payload shape (which field carries our
+`mandateReference` and the new status) — inspect a real sandbox webhook. Until then, mandate
+activation/cancellation can be reconciled by polling Get-mandate-status. Also confirm the sandbox
+supports the full direct-debit authorization flow end-to-end.

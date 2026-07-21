@@ -13,6 +13,9 @@ public sealed class SubscriptionRepository : ISubscriptionRepository
 
     public void Add(Subscription subscription) => _db.Subscriptions.Add(subscription);
 
+    public Task<Subscription?> GetByIdAsync(Guid subscriptionId, CancellationToken cancellationToken) =>
+        _db.Subscriptions.AsNoTracking().FirstOrDefaultAsync(s => s.Id == subscriptionId, cancellationToken);
+
     public Task<Subscription?> FindByReservedAccountNumberAsync(
         string accountNumber, CancellationToken cancellationToken) =>
         // Webhook path: no ambient tenant, so bypass the global filter. Reserved accounts are

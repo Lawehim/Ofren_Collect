@@ -21,6 +21,9 @@ public static class DependencyInjection
         services.AddScoped<IInvoiceRepository, InvoiceRepository>();
         services.AddScoped<IPaymentEventRepository, PaymentEventRepository>();
         services.AddScoped<IRefundRepository, RefundRepository>();
+        services.AddScoped<IMandateRepository, MandateRepository>();
+        services.AddScoped<IMandateDebitRepository, MandateDebitRepository>();
+        services.AddScoped<IDueMandateDebitReader, DueMandateDebitReader>();
         services.AddScoped<IInboxRepository, InboxRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();

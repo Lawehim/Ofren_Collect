@@ -7,6 +7,9 @@ public interface IInvoiceRepository
 {
     void Add(Invoice invoice);
 
+    /// <summary>Loads an invoice by id (tracked, for applying a mandate-debit payment).</summary>
+    Task<Invoice?> GetByIdAsync(Guid invoiceId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Returns the subscription's current open invoice (Pending or Underpaid), or null if
     /// none is open. Resolved on the webhook path, so the implementation bypasses the global

@@ -38,10 +38,10 @@ public sealed class TransactionReader : ITransactionReader
             return [];
         }
 
-        var subscriptionsByAccount = await _db.Subscriptions
-            .AsNoTracking()
-            .Where(s => s.ReservedAccountNumber != null)
-            .ToDictionaryAsync(s => s.ReservedAccountNumber!, cancellationToken);
+        // Resolve the customer via the matched invoice, so both reserved-account inflows and
+        // mandate debits (whose "account" is the mandate reference, not a real account) resolve.
+        var invoicesById = await _db.Invoices.AsNoTracking().ToDictionaryAsync(i => i.Id, cancellationToken);
+        var subscriptionsById = await _db.Subscriptions.AsNoTracking().ToDictionaryAsync(s => s.Id, cancellationToken);
         var customers = await _db.Customers.AsNoTracking().ToDictionaryAsync(c => c.Id, cancellationToken);
 
         var references = payments.Select(p => p.MonnifyTransactionReference).ToList();
@@ -58,7 +58,9 @@ public sealed class TransactionReader : ITransactionReader
             .Select(payment =>
             {
                 var customerName = string.Empty;
-                if (subscriptionsByAccount.TryGetValue(payment.ReservedAccountNumber, out var subscription)
+                if (payment.MatchedInvoiceId is { } invoiceId
+                    && invoicesById.TryGetValue(invoiceId, out var invoice)
+                    && subscriptionsById.TryGetValue(invoice.SubscriptionId, out var subscription)
                     && customers.TryGetValue(subscription.CustomerId, out var customer))
                 {
                     customerName = customer.Name;

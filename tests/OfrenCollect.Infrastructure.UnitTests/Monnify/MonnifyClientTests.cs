@@ -165,6 +165,69 @@ public class MonnifyClientTests
         await act.Should().ThrowAsync<MonnifyException>();
     }
 
+    [Fact]
+    public async Task CreateMandate_MapsCodeStatusAndAuthLink()
+    {
+        var body =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":{"
+            + "\"mandateReference\":\"OFREN-MND-1\",\"mandateCode\":\"MTDD|ABC\",\"mandateStatus\":\"INITIATED\","
+            + "\"redirectUrl\":\"https://paylink.monnify.com/mandate-auth/xyz\"}}";
+        var client = CreateClient(body);
+
+        var result = await client.CreateMandateAsync(
+            new MandateCreationRequest(
+                "OFREN-MND-1", Money.Of(50000m), "Subscription", "Ada", "ada@x.ng", "080", "Lagos",
+                "0051762787", "044", Now, Now.AddYears(1)),
+            CancellationToken.None);
+
+        result.MandateCode.Should().Be("MTDD|ABC");
+        result.Status.Should().Be(MonnifyMandateStatus.Initiated);
+        result.AuthorizationLink.Should().Contain("paylink.monnify.com");
+    }
+
+    [Fact]
+    public async Task GetMandateStatus_MapsActiveFromArray()
+    {
+        var body =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":["
+            + "{\"mandateReference\":\"OFREN-MND-1\",\"mandateStatus\":\"ACTIVE\"}]}";
+        var client = CreateClient(body);
+
+        var status = await client.GetMandateStatusAsync("OFREN-MND-1", CancellationToken.None);
+
+        status.Should().Be(MonnifyMandateStatus.Active);
+    }
+
+    [Fact]
+    public async Task DebitMandate_ReturnsTransactionReferenceToReconcile()
+    {
+        var body =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":{"
+            + "\"transactionStatus\":\"PENDING\",\"transactionReference\":\"MNFY|20240519|000001\","
+            + "\"paymentReference\":\"PR-1\"}}";
+        var client = CreateClient(body);
+
+        var result = await client.DebitMandateAsync(
+            new MandateDebitRequest("PR-1", "MTDD|ABC", Money.Of(1000m), "July invoice", "ada@x.ng"),
+            CancellationToken.None);
+
+        result.TransactionReference.Should().Be("MNFY|20240519|000001");
+        result.TransactionStatus.Should().Be("PENDING");
+    }
+
+    [Fact]
+    public async Task CancelMandate_WhenSuccessful_DoesNotThrow()
+    {
+        var body =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":{"
+            + "\"mandateStatus\":\"ACTIVE\"}}";
+        var client = CreateClient(body);
+
+        var act = () => client.CancelMandateAsync("MTDD|ABC", CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
+    }
+
     private sealed class FixedClock : TimeProvider
     {
         private readonly DateTimeOffset _now;

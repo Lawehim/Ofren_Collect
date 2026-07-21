@@ -4,6 +4,7 @@ using OfrenCollect.Domain.Abstractions;
 using OfrenCollect.Domain.Audit;
 using OfrenCollect.Domain.Customers;
 using OfrenCollect.Domain.Invoices;
+using OfrenCollect.Domain.Mandates;
 using OfrenCollect.Domain.Payments;
 using OfrenCollect.Domain.Plans;
 using OfrenCollect.Domain.Refunds;
@@ -43,6 +44,8 @@ public sealed class OfrenDbContext : DbContext
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<PaymentEvent> PaymentEvents => Set<PaymentEvent>();
     public DbSet<Refund> Refunds => Set<Refund>();
+    public DbSet<Mandate> Mandates => Set<Mandate>();
+    public DbSet<MandateDebit> MandateDebits => Set<MandateDebit>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
@@ -68,6 +71,8 @@ public sealed class OfrenDbContext : DbContext
         ConfigureInvoice(modelBuilder);
         ConfigurePaymentEvent(modelBuilder);
         ConfigureRefund(modelBuilder);
+        ConfigureMandate(modelBuilder);
+        ConfigureMandateDebit(modelBuilder);
         ConfigureAuditEntry(modelBuilder);
         ConfigureInboxMessage(modelBuilder);
     }
@@ -177,6 +182,33 @@ public sealed class OfrenDbContext : DbContext
             b.HasIndex(p => p.MonnifyTransactionReference).IsUnique();
             // PaymentEvent carries a nullable tenant (unmatched inflows have none) and is
             // deliberately not covered by the global tenant filter; its reads scope explicitly.
+        });
+
+    private void ConfigureMandate(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<Mandate>(b =>
+        {
+            b.HasKey(m => m.Id);
+            b.Property(m => m.MandateReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(m => m.MonnifyMandateCode).HasMaxLength(ShortText).IsRequired();
+            b.Property(m => m.Status).HasConversion<string>().HasMaxLength(ShortText);
+            // The mandate reference is the idempotency key (FR-9).
+            b.HasIndex(m => m.MandateReference).IsUnique();
+            b.HasIndex(m => m.SubscriptionId);
+            ApplyTenantFilter(b);
+        });
+
+    private void ConfigureMandateDebit(ModelBuilder modelBuilder) =>
+        modelBuilder.Entity<MandateDebit>(b =>
+        {
+            b.HasKey(d => d.Id);
+            b.Property(d => d.MandateReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(d => d.PaymentReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(d => d.TransactionReference).HasMaxLength(ShortText).IsRequired();
+            b.Property(d => d.Status).HasConversion<string>().HasMaxLength(ShortText);
+            ConfigureMoney(b.ComplexProperty(d => d.Amount), "Amount");
+            // The payment reference is the idempotency key (FR-9.3).
+            b.HasIndex(d => d.PaymentReference).IsUnique();
+            ApplyTenantFilter(b);
         });
 
     private void ConfigureRefund(ModelBuilder modelBuilder) =>

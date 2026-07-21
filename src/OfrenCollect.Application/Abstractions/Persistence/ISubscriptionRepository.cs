@@ -7,6 +7,9 @@ public interface ISubscriptionRepository
 {
     void Add(Subscription subscription);
 
+    /// <summary>Finds a subscription owned by the current tenant, or null.</summary>
+    Task<Subscription?> GetByIdAsync(Guid subscriptionId, CancellationToken cancellationToken);
+
     /// <summary>
     /// Finds the subscription that owns a reserved account number. Used on the webhook path,
     /// which has no ambient tenant, so the implementation deliberately bypasses the global

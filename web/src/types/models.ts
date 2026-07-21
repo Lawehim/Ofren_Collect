@@ -82,3 +82,19 @@ export interface RefundResult {
   amount: number;
   status: string;
 }
+
+export interface CreateMandateResult {
+  mandateReference: string;
+  authorizationLink: string;
+  status: string;
+}
+
+export interface MandateStatusResult {
+  mandateReference: string;
+  status: string;
+}
+
+export interface MandateDebitResult {
+  paymentReference: string;
+  status: string;
+}

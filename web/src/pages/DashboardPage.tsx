@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useAuth } from '../auth/useAuth';
 import { AssistantPanel } from '../components/AssistantPanel';
+import { DirectDebitModal } from '../components/DirectDebitModal';
 import { StatusBadge } from '../components/StatusBadge';
 import { avatarColor, formatAccount, initials, naira } from '../lib/format';
 import { useReconciliationHub } from '../realtime/useReconciliationHub';
@@ -23,6 +24,9 @@ export function DashboardPage() {
     queryKey: ['dashboard'],
     queryFn: () => api.getDashboard(token),
   });
+
+  const isOwner = auth?.role === 'Owner';
+  const [mandateFor, setMandateFor] = useState<DashboardSubscriptionRow | null>(null);
 
   const lastEvent = useReconciliationHub(token);
   const [toastVisible, setToastVisible] = useState(false);
@@ -112,6 +116,7 @@ export function DashboardPage() {
                 <th>Reserved account</th>
                 <th>Amount</th>
                 <th>Status</th>
+                {isOwner && <th />}
               </tr>
             </thead>
             <tbody>
@@ -138,12 +143,27 @@ export function DashboardPage() {
                   <td>
                     <StatusBadge status={rowStatus(row)} />
                   </td>
+                  {isOwner && (
+                    <td>
+                      <button type="button" className="btn" onClick={() => setMandateFor(row)}>
+                        Direct debit
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {mandateFor && (
+        <DirectDebitModal
+          subscriptionId={mandateFor.subscriptionId}
+          customerName={mandateFor.customerName}
+          onClose={() => setMandateFor(null)}
+        />
+      )}
 
       {toastVisible && lastEvent && (
         <div className="live">

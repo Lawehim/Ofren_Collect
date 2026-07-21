@@ -15,8 +15,10 @@ namespace OfrenCollect.Infrastructure.Monnify;
 /// (base URL, resilience) by the composition root. Contract details are grounded in
 /// docs/integrations/monnify-sandbox-notes.md.
 /// </summary>
-public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IDisposable
+public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IMonnifyMandateClient, IDisposable
 {
+    private const string MandateDateFormat = "yyyy-MM-ddTHH:mm:ss";
+
     // Statuses that mean money actually landed and should be reconciled. PARTIALLY_PAID is
     // included: it is a real inflow that reconciles to an Underpaid invoice.
     private static readonly HashSet<string> InflowStatuses =
@@ -138,6 +140,116 @@ public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IDispo
 
         return MapRefundStatus(body.RefundStatus);
     }
+
+    public async Task<MandateCreationResult> CreateMandateAsync(
+        MandateCreationRequest request, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var requestBody = new CreateMandateRequestBody(
+            _options.ContractCode,
+            request.MandateReference,
+            request.Amount.Amount,
+            AutoRenew: false,
+            CustomerCancellation: true,
+            request.CustomerName,
+            request.CustomerPhoneNumber,
+            request.CustomerEmail,
+            request.CustomerAddress,
+            request.CustomerAccountNumber,
+            request.CustomerAccountBankCode,
+            request.Description,
+            request.StartDate.UtcDateTime.ToString(MandateDateFormat, CultureInfo.InvariantCulture),
+            request.EndDate.UtcDateTime.ToString(MandateDateFormat, CultureInfo.InvariantCulture));
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/direct-debit/mandate/create")
+        {
+            Content = JsonContent.Create(requestBody, options: JsonOptions),
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<CreateMandateResponseBody>(response, cancellationToken);
+
+        return new MandateCreationResult(
+            body.MandateCode ?? string.Empty,
+            body.RedirectUrl ?? string.Empty,
+            MapMandateStatus(body.MandateStatus));
+    }
+
+    public async Task<MonnifyMandateStatus> GetMandateStatusAsync(
+        string mandateReference, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var encoded = Uri.EscapeDataString(mandateReference);
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/v1/direct-debit/mandate/?mandateReferences={encoded}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<IReadOnlyList<MandateStatusBody>>(response, cancellationToken);
+
+        return body is { Count: > 0 } ? MapMandateStatus(body[0].MandateStatus) : MonnifyMandateStatus.Unknown;
+    }
+
+    public async Task<MandateDebitResult> DebitMandateAsync(
+        MandateDebitRequest request, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var requestBody = new DebitMandateRequestBody(
+            request.PaymentReference, request.MandateCode, request.Amount.Amount, request.Narration, request.CustomerEmail);
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/direct-debit/mandate/debit")
+        {
+            Content = JsonContent.Create(requestBody, options: JsonOptions),
+        };
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<DebitMandateResponseBody>(response, cancellationToken);
+
+        return new MandateDebitResult(body.TransactionReference ?? string.Empty, body.TransactionStatus ?? string.Empty);
+    }
+
+    public async Task<string> GetDebitStatusAsync(string paymentReference, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var encoded = Uri.EscapeDataString(paymentReference);
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/v1/direct-debit/mandate/debit-status?paymentReference={encoded}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<DebitMandateResponseBody>(response, cancellationToken);
+
+        return body.TransactionStatus ?? string.Empty;
+    }
+
+    public async Task CancelMandateAsync(string mandateCode, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var encoded = Uri.EscapeDataString(mandateCode);
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Patch, $"/api/v1/direct-debit/mandate/cancel-mandate/{encoded}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        _ = await ReadResponseBodyAsync<CancelMandateResponseBody>(response, cancellationToken);
+    }
+
+    private static MonnifyMandateStatus MapMandateStatus(string? status) => status?.ToUpperInvariant() switch
+    {
+        "ACTIVE" => MonnifyMandateStatus.Active,
+        "FAILED" => MonnifyMandateStatus.Failed,
+        "CANCELLED" => MonnifyMandateStatus.Cancelled,
+        "EXPIRED" => MonnifyMandateStatus.Expired,
+        "INITIATED" or "PENDING" => MonnifyMandateStatus.Initiated,
+        _ => MonnifyMandateStatus.Unknown,
+    };
 
     private static MonnifyRefundStatus MapRefundStatus(string? status) => status?.ToUpperInvariant() switch
     {
@@ -280,4 +392,42 @@ public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IDispo
 
     private sealed record RefundResponseBody(
         [property: JsonPropertyName("refundStatus")] string? RefundStatus);
+
+    private sealed record CreateMandateRequestBody(
+        [property: JsonPropertyName("contractCode")] string ContractCode,
+        [property: JsonPropertyName("mandateReference")] string MandateReference,
+        [property: JsonPropertyName("mandateAmount")] decimal MandateAmount,
+        [property: JsonPropertyName("autoRenew")] bool AutoRenew,
+        [property: JsonPropertyName("customerCancellation")] bool CustomerCancellation,
+        [property: JsonPropertyName("customerName")] string CustomerName,
+        [property: JsonPropertyName("customerPhoneNumber")] string CustomerPhoneNumber,
+        [property: JsonPropertyName("customerEmailAddress")] string CustomerEmailAddress,
+        [property: JsonPropertyName("customerAddress")] string CustomerAddress,
+        [property: JsonPropertyName("customerAccountNumber")] string CustomerAccountNumber,
+        [property: JsonPropertyName("customerAccountBankCode")] string CustomerAccountBankCode,
+        [property: JsonPropertyName("mandateDescription")] string MandateDescription,
+        [property: JsonPropertyName("mandateStartDate")] string MandateStartDate,
+        [property: JsonPropertyName("mandateEndDate")] string MandateEndDate);
+
+    private sealed record CreateMandateResponseBody(
+        [property: JsonPropertyName("mandateCode")] string? MandateCode,
+        [property: JsonPropertyName("mandateStatus")] string? MandateStatus,
+        [property: JsonPropertyName("redirectUrl")] string? RedirectUrl);
+
+    private sealed record MandateStatusBody(
+        [property: JsonPropertyName("mandateStatus")] string? MandateStatus);
+
+    private sealed record DebitMandateRequestBody(
+        [property: JsonPropertyName("paymentReference")] string PaymentReference,
+        [property: JsonPropertyName("mandateCode")] string MandateCode,
+        [property: JsonPropertyName("debitAmount")] decimal DebitAmount,
+        [property: JsonPropertyName("narration")] string Narration,
+        [property: JsonPropertyName("customerEmail")] string CustomerEmail);
+
+    private sealed record DebitMandateResponseBody(
+        [property: JsonPropertyName("transactionReference")] string? TransactionReference,
+        [property: JsonPropertyName("transactionStatus")] string? TransactionStatus);
+
+    private sealed record CancelMandateResponseBody(
+        [property: JsonPropertyName("mandateStatus")] string? MandateStatus);
 }

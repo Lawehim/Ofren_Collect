@@ -1,8 +1,11 @@
 import type {
   AssistantAnswer,
   AuthResult,
+  CreateMandateResult,
   CustomerResponse,
   DashboardResponse,
+  MandateDebitResult,
+  MandateStatusResult,
   PlanResponse,
   RefundResult,
   SubscriptionResponse,
@@ -106,4 +109,30 @@ export const api = {
     token: string,
     body: { originalTransactionReference: string; amount: number; reason: string; refundReference: string },
   ) => request<RefundResult>('/api/refunds', { method: 'POST', body, token }),
+
+  createMandate: (
+    token: string,
+    body: {
+      subscriptionId: string;
+      customerAccountNumber: string;
+      customerAccountBankCode: string;
+      customerAddress: string;
+      customerPhoneNumber: string;
+    },
+  ) => request<CreateMandateResult>('/api/mandates', { method: 'POST', body, token }),
+
+  refreshMandate: (token: string, reference: string) =>
+    request<MandateStatusResult>(`/api/mandates/${encodeURIComponent(reference)}/refresh`, { method: 'POST', token }),
+
+  debitMandate: (token: string, subscriptionId: string) =>
+    request<MandateDebitResult>('/api/mandates/debit', { method: 'POST', body: { subscriptionId }, token }),
+
+  reconcileDebit: (token: string, paymentReference: string) =>
+    request<MandateDebitResult>(`/api/mandates/debit/${encodeURIComponent(paymentReference)}/reconcile`, {
+      method: 'POST',
+      token,
+    }),
+
+  cancelMandate: (token: string, reference: string) =>
+    request<void>(`/api/mandates/${encodeURIComponent(reference)}/cancel`, { method: 'POST', token }),
 };
