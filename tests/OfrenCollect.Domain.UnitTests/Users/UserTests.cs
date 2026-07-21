@@ -45,4 +45,53 @@ public class UserTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    private static readonly DateTimeOffset Now = new(2026, 7, 21, 12, 0, 0, TimeSpan.Zero);
+
+    private static User NewUser() => User.Create(TenantId, "ada@brightpath.ng", "old-hash", UserRole.Owner);
+
+    [Fact]
+    public void SetPasswordResetToken_StoresHashAndExpiry()
+    {
+        var user = NewUser();
+        var expiry = Now.AddMinutes(30);
+
+        user.SetPasswordResetToken("token-hash", expiry);
+
+        user.PasswordResetTokenHash.Should().Be("token-hash");
+        user.PasswordResetTokenExpiresAt.Should().Be(expiry);
+    }
+
+    [Fact]
+    public void IsResetTokenValid_TrueBeforeExpiry_FalseAfter_FalseWhenNone()
+    {
+        var user = NewUser();
+        user.IsResetTokenValid(Now).Should().BeFalse();
+
+        user.SetPasswordResetToken("h", Now.AddMinutes(30));
+        user.IsResetTokenValid(Now).Should().BeTrue();
+        user.IsResetTokenValid(Now.AddMinutes(31)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ResetPassword_ChangesHash_AndClearsToken()
+    {
+        var user = NewUser();
+        user.SetPasswordResetToken("h", Now.AddMinutes(30));
+
+        user.ResetPassword("new-hash");
+
+        user.PasswordHash.Should().Be("new-hash");
+        user.PasswordResetTokenHash.Should().BeNull();
+        user.PasswordResetTokenExpiresAt.Should().BeNull();
+        user.IsResetTokenValid(Now).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SetPasswordResetToken_BlankHash_Throws()
+    {
+        var act = () => NewUser().SetPasswordResetToken("", Now.AddMinutes(30));
+
+        act.Should().Throw<ArgumentException>();
+    }
 }

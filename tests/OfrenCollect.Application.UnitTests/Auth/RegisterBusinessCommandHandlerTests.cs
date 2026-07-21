@@ -17,10 +17,11 @@ public class RegisterBusinessCommandHandlerTests
     private readonly ITenantRepository _tenants = Substitute.For<ITenantRepository>();
     private readonly IPasswordHasher _hasher = Substitute.For<IPasswordHasher>();
     private readonly IJwtTokenService _jwt = Substitute.For<IJwtTokenService>();
+    private readonly IAccountEmailService _emails = Substitute.For<IAccountEmailService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private RegisterBusinessCommandHandler CreateHandler() =>
-        new(_users, _tenants, _hasher, _jwt, _unitOfWork, TimeProvider.System);
+        new(_users, _tenants, _hasher, _jwt, _emails, _unitOfWork, TimeProvider.System);
 
     private static RegisterBusinessCommand Command() =>
         new("BrightPath Tutors", "Ada@BrightPath.NG", "password123");

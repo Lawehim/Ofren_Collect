@@ -18,5 +18,9 @@ public sealed class UserRepository : IUserRepository
     public Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken) =>
         _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
+    public Task<User?> FindByResetTokenHashAsync(string tokenHash, CancellationToken cancellationToken) =>
+        // Pre-auth (password reset): no ambient tenant, so bypass the global filter.
+        _db.Users.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.PasswordResetTokenHash == tokenHash, cancellationToken);
+
     public void Add(User user) => _db.Users.Add(user);
 }

@@ -4,6 +4,7 @@ using OfrenCollect.Application.Abstractions;
 using OfrenCollect.Application.Assistant;
 using OfrenCollect.Infrastructure.Ai;
 using OfrenCollect.Infrastructure.Auth;
+using OfrenCollect.Infrastructure.Email;
 using OfrenCollect.Infrastructure.Jobs;
 using OfrenCollect.Infrastructure.Monnify;
 using OfrenCollect.Infrastructure.Refunds;
@@ -27,7 +28,13 @@ public static class DependencyInjection
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+        services.AddSingleton<IResetTokenService, ResetTokenService>();
         services.AddSingleton<IMonnifyWebhookVerifier, MonnifyWebhookSignatureVerifier>();
+
+        var emailOptions = configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
+        services.AddSingleton(emailOptions);
+        // Always registered; it self-gates on EmailOptions.Enabled (logs a no-op when disabled).
+        services.AddSingleton<IAccountEmailService, AccountEmailService>();
 
         services.AddHttpClient<IMonnifyClient, MonnifyClient>(client =>
             {

@@ -14,5 +14,11 @@ public interface IUserRepository
     /// </summary>
     Task<User?> FindByEmailAsync(string email, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Finds a user by the hash of their outstanding reset token (the password-reset path is
+    /// pre-auth, so it bypasses the tenant filter). Returns null if no user holds that hash.
+    /// </summary>
+    Task<User?> FindByResetTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
+
     void Add(User user);
 }

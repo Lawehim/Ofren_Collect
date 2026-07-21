@@ -115,7 +115,9 @@ public sealed class OfrenDbContext : DbContext
             b.Property(u => u.Email).HasMaxLength(ShortText).IsRequired();
             b.Property(u => u.PasswordHash).IsRequired();
             b.Property(u => u.Role).HasConversion<string>().HasMaxLength(ShortText);
+            b.Property(u => u.PasswordResetTokenHash).HasMaxLength(ShortText);
             b.HasIndex(u => u.Email).IsUnique();
+            b.HasIndex(u => u.PasswordResetTokenHash);
             ApplyTenantFilter(b);
         });
 

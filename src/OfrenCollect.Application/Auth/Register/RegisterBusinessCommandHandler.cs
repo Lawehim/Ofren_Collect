@@ -12,6 +12,7 @@ public sealed class RegisterBusinessCommandHandler : IRequestHandler<RegisterBus
     private readonly ITenantRepository _tenants;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwt;
+    private readonly IAccountEmailService _emails;
     private readonly IUnitOfWork _unitOfWork;
     private readonly TimeProvider _clock;
 
@@ -20,6 +21,7 @@ public sealed class RegisterBusinessCommandHandler : IRequestHandler<RegisterBus
         ITenantRepository tenants,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwt,
+        IAccountEmailService emails,
         IUnitOfWork unitOfWork,
         TimeProvider clock)
     {
@@ -27,6 +29,7 @@ public sealed class RegisterBusinessCommandHandler : IRequestHandler<RegisterBus
         _tenants = tenants;
         _passwordHasher = passwordHasher;
         _jwt = jwt;
+        _emails = emails;
         _unitOfWork = unitOfWork;
         _clock = clock;
     }
@@ -46,6 +49,9 @@ public sealed class RegisterBusinessCommandHandler : IRequestHandler<RegisterBus
         _tenants.Add(tenant);
         _users.Add(user);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Best-effort welcome (the email service never throws) — must not fail registration.
+        await _emails.SendWelcomeAsync(user.Email, tenant.BusinessName, cancellationToken);
 
         var token = _jwt.GenerateToken(user.Id, user.TenantId, user.Email, user.Role);
         return new AuthResult(token, user.Email, user.Role.ToString());

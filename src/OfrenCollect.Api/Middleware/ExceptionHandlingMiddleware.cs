@@ -39,6 +39,7 @@ public sealed class ExceptionHandlingMiddleware
         {
             ValidationException => (StatusCodes.Status400BadRequest, "One or more validation errors occurred."),
             InvalidCredentialsException => (StatusCodes.Status401Unauthorized, exception.Message),
+            InvalidResetTokenException => (StatusCodes.Status400BadRequest, exception.Message),
             EmailAlreadyInUseException => (StatusCodes.Status409Conflict, exception.Message),
             NotFoundException => (StatusCodes.Status404NotFound, exception.Message),
             MonnifyException => (StatusCodes.Status502BadGateway, "The payment provider is unavailable."),

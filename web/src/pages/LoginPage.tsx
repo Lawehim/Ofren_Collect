@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/useAuth';
 
@@ -109,6 +109,11 @@ export function LoginPage() {
               placeholder="••••••••••"
               required
             />
+            {!isRegister && (
+              <div className="field-aside">
+                <Link to="/forgot-password">Forgot password?</Link>
+              </div>
+            )}
           </div>
 
           <button type="submit" className="btn primary" disabled={busy}>

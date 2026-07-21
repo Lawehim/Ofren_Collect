@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { api } from '../api/client';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { api, setUnauthorizedHandler } from '../api/client';
 import type { AuthResult } from '../types/models';
 
 interface AuthState {
@@ -51,6 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
     setAuth(null);
   }, []);
+
+  // Sign out automatically when the API reports the session has expired (401 on an authed call).
+  // Clearing auth makes the router redirect to /login.
+  useEffect(() => {
+    setUnauthorizedHandler(() => logout());
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
 
   const value = useMemo(
     () => ({ auth, login, register, logout }),

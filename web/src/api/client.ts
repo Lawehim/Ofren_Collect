@@ -28,6 +28,13 @@ interface RequestOptions {
   token?: string | null;
 }
 
+// Called when an authenticated request is rejected with 401 (expired/invalid token) so the app can
+// sign the user out and send them back to login. Registered by the auth provider.
+let onUnauthorized: (() => void) | null = null;
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  onUnauthorized = handler;
+}
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, token } = options;
 
@@ -42,6 +49,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   });
 
   if (!response.ok) {
+    // A 401 on a request that carried a token means the session expired — sign out and redirect.
+    // (A 401 without a token is a failed login, handled by the caller.)
+    if (response.status === 401 && token) {
+      onUnauthorized?.();
+    }
+
     let message = `Request failed (${response.status}).`;
     let errors: string[] = [];
     try {
@@ -64,6 +77,12 @@ export const api = {
 
   login: (body: { email: string; password: string }) =>
     request<AuthResult>('/api/auth/login', { method: 'POST', body }),
+
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/api/auth/forgot-password', { method: 'POST', body: { email } }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    request<{ message: string }>('/api/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
 
   getDashboard: (token: string) => request<DashboardResponse>('/api/dashboard', { token }),
 
