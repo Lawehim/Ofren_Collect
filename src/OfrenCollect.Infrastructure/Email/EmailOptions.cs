@@ -1,9 +1,9 @@
 namespace OfrenCollect.Infrastructure.Email;
 
 /// <summary>
-/// Email/SMTP configuration. Disabled by default; when enabled it points at any SMTP provider
-/// (e.g. Brevo's smtp-relay.brevo.com). Username/Password are secrets and come from
-/// user-secrets/environment (§9). <see cref="AppBaseUrl"/> is the SPA origin used to build links.
+/// Email configuration. Disabled by default. Uses Brevo's transactional email HTTP API (port 443,
+/// so it works on hosts that block outbound SMTP). The <see cref="ApiKey"/> is a secret and comes
+/// from user-secrets/environment (§9); <see cref="AppBaseUrl"/> is the SPA origin used in links.
 /// </summary>
 public sealed class EmailOptions
 {
@@ -11,14 +11,12 @@ public sealed class EmailOptions
 
     public bool Enabled { get; init; }
 
-    public string SmtpHost { get; init; } = string.Empty;
+    /// <summary>Brevo API key (the "API keys" tab, not the SMTP key). Sent as the <c>api-key</c> header.</summary>
+    public string ApiKey { get; init; } = string.Empty;
 
-    public int SmtpPort { get; init; } = 587;
+    public string ApiBaseUrl { get; init; } = "https://api.brevo.com";
 
-    public string Username { get; init; } = string.Empty;
-
-    public string Password { get; init; } = string.Empty;
-
+    /// <summary>Must be a sender verified in Brevo, or sends are rejected.</summary>
     public string FromAddress { get; init; } = string.Empty;
 
     public string FromName { get; init; } = "Ofren Collect";

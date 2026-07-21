@@ -33,8 +33,19 @@ public static class DependencyInjection
 
         var emailOptions = configuration.GetSection(EmailOptions.SectionName).Get<EmailOptions>() ?? new EmailOptions();
         services.AddSingleton(emailOptions);
-        // Always registered; it self-gates on EmailOptions.Enabled (logs a no-op when disabled).
+        // Email is non-blocking: handlers enqueue instantly; a background dispatcher delivers via
+        // Brevo's HTTP API (port 443, so it works where outbound SMTP is blocked, e.g. Render).
+        services.AddSingleton<IEmailOutbox, ChannelEmailOutbox>();
         services.AddSingleton<IAccountEmailService, AccountEmailService>();
+        services.AddHttpClient(EmailDispatcher.HttpClientName, client =>
+            {
+                var baseUrl = string.IsNullOrWhiteSpace(emailOptions.ApiBaseUrl)
+                    ? "https://api.brevo.com"
+                    : emailOptions.ApiBaseUrl;
+                client.BaseAddress = new Uri(baseUrl);
+            })
+            .AddStandardResilienceHandler();
+        services.AddHostedService<EmailDispatcher>();
 
         services.AddHttpClient<IMonnifyClient, MonnifyClient>(client =>
             {
