@@ -8,5 +8,6 @@ namespace OfrenCollect.Domain.Webhooks;
 public enum WebhookEventType
 {
     TransactionCompletion = 0,
-    RefundCompletion
+    RefundCompletion,
+    MandateStatusChange
 }

@@ -19,6 +19,12 @@ public interface IMonnifyMandateClient
     Task<MonnifyMandateStatus> GetMandateStatusAsync(string mandateReference, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The customer authorization link for a mandate — returned by get-mandate-status, not by create
+    /// (whose redirectUrl is a merchant page). Send this to the customer to authorise recurring debits.
+    /// </summary>
+    Task<string> GetMandateAuthorizationLinkAsync(string mandateReference, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Debits an active mandate. The returned transaction reference reconciles through the existing
     /// verify/transaction path, exactly like a reserved-account inflow.
     /// </summary>

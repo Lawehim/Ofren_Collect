@@ -135,7 +135,7 @@ export function DirectDebitModal({ subscriptionId, customerName, onClose }: Prop
             <p>
               {isActive
                 ? 'The customer has authorized the mandate. It can now be debited on schedule.'
-                : 'Send this link to the customer to authorize recurring debits, then check the status.'}
+                : 'Monnify has emailed the customer an authorization link. Once they authorize, click "Check status". You can also share the link below.'}
             </p>
           </div>
           {!isActive && (

@@ -26,6 +26,7 @@ public sealed class MonnifyWebhookController : ControllerBase
     private const string SignatureHeader = "monnify-signature";
     private const string RefundSucceededEvent = "SUCCESSFUL_REFUND";
     private const string RefundFailedEvent = "FAILED_REFUND";
+    private const string MandateUpdateEvent = "MANDATE_UPDATE";
 
     private readonly IInboxRepository _inbox;
     private readonly IUnitOfWork _unitOfWork;
@@ -99,6 +100,19 @@ public sealed class MonnifyWebhookController : ControllerBase
                 if (TryReadString(scope, "refundReference", out var refundReference))
                 {
                     message = InboxMessage.ReceiveRefund(refundReference, rawBody, receivedAt);
+                    return true;
+                }
+
+                return false;
+            }
+
+            if (string.Equals(eventType, MandateUpdateEvent, StringComparison.OrdinalIgnoreCase))
+            {
+                // Mandate status change (FR-9.2): our reference is `externalMandateReference`; the
+                // drainer re-verifies the status with Monnify (§8).
+                if (TryReadString(scope, "externalMandateReference", out var mandateReference))
+                {
+                    message = InboxMessage.ReceiveMandate(mandateReference, rawBody, receivedAt);
                     return true;
                 }
 

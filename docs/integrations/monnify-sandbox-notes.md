@@ -688,7 +688,8 @@ All Bearer JWT from `/api/v1/auth/login`. Standard `{ requestSuccessful, respons
 
 **Mandate statuses:** `INITIATED`/`PENDING`, `ACTIVE`, `FAILED`, `CANCELLED`, `EXPIRED`.
 
-**Still to confirm:** the **Mandate Status Change** webhook payload shape (which field carries our
-`mandateReference` and the new status) — inspect a real sandbox webhook. Until then, mandate
-activation/cancellation can be reconciled by polling Get-mandate-status. Also confirm the sandbox
-supports the full direct-debit authorization flow end-to-end.
+**Mandate Status Change webhook — CONFIRMED:** `eventType` = `"MANDATE_UPDATE"`; `eventData` carries
+`externalMandateReference` (our merchant reference) and `mandateStatus` (e.g. `ACTIVE`, `CANCELLED`),
+plus `mandateCode` and the customer/bank fields. We store only the reference and **re-verify** the
+status with Get-mandate-status (§8), so the drainer activates/revokes push-triggered — polling remains
+as a fallback. Still worth confirming the sandbox supports the full authorization flow end-to-end.

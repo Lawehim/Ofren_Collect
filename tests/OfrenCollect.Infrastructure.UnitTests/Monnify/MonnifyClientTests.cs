@@ -199,6 +199,20 @@ public class MonnifyClientTests
     }
 
     [Fact]
+    public async Task GetMandateAuthorizationLink_ReturnsLinkFromStatusResponse()
+    {
+        var body =
+            "{\"requestSuccessful\":true,\"responseMessage\":\"ok\",\"responseCode\":\"0\",\"responseBody\":["
+            + "{\"mandateStatus\":\"INITIATED\","
+            + "\"authorizationLink\":\"https://paylink.monnify.com/mandate-auth/xyz\"}]}";
+        var client = CreateClient(body);
+
+        var link = await client.GetMandateAuthorizationLinkAsync("OFREN-MND-1", CancellationToken.None);
+
+        link.Should().Contain("paylink.monnify.com/mandate-auth");
+    }
+
+    [Fact]
     public async Task DebitMandate_ReturnsTransactionReferenceToReconcile()
     {
         var body =

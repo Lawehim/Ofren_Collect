@@ -32,7 +32,9 @@ public class CreateMandateCommandHandlerTests
     {
         _tenantContext.CurrentTenantId.Returns(TenantId);
         _monnify.CreateMandateAsync(Arg.Any<MandateCreationRequest>(), Arg.Any<CancellationToken>())
-            .Returns(new MandateCreationResult("MTDD|ABC", "https://paylink.monnify.com/auth/x", MonnifyMandateStatus.Initiated));
+            .Returns(new MandateCreationResult("MTDD|ABC", string.Empty, MonnifyMandateStatus.Initiated));
+        _monnify.GetMandateAuthorizationLinkAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns("https://paylink.monnify.com/mandate-auth/real");
     }
 
     private CreateMandateCommandHandler CreateHandler() => new(
@@ -57,7 +59,7 @@ public class CreateMandateCommandHandlerTests
 
         var result = await CreateHandler().Handle(Command(), CancellationToken.None);
 
-        result.AuthorizationLink.Should().Contain("paylink.monnify.com");
+        result.AuthorizationLink.Should().Contain("mandate-auth/real");
         result.Status.Should().Be(nameof(MandateStatus.Pending));
         _mandates.Received(1).Add(Arg.Is<Mandate>(m =>
             m != null && m.TenantId == TenantId && m.SubscriptionId == _subscription.Id

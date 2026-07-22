@@ -66,4 +66,23 @@ public class InboxMessageTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void ReceiveMandate_StoresMandateReference_TaggedAsMandateStatusChange()
+    {
+        var message = InboxMessage.ReceiveMandate("OFREN-MND-1", "{\"raw\":true}", ReceivedAt);
+
+        message.EventType.Should().Be(WebhookEventType.MandateStatusChange);
+        message.MandateReference.Should().Be("OFREN-MND-1");
+        message.TransactionReference.Should().BeNull();
+        message.RefundReference.Should().BeNull();
+    }
+
+    [Fact]
+    public void ReceiveMandate_WithBlankReference_Throws()
+    {
+        var act = () => InboxMessage.ReceiveMandate("", "{}", ReceivedAt);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }

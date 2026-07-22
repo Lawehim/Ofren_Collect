@@ -65,6 +65,20 @@ public class MonnifyWebhookControllerTests
     }
 
     [Fact]
+    public async Task Receive_MandateUpdate_StoresMandateInboxMessage()
+    {
+        const string body =
+            "{\"eventType\":\"MANDATE_UPDATE\",\"eventData\":{\"externalMandateReference\":\"OFREN-MND-1\","
+            + "\"mandateStatus\":\"ACTIVE\",\"mandateCode\":\"MTDD|ABC\"}}";
+
+        var result = await Post(body);
+
+        result.Should().BeOfType<OkResult>();
+        _inbox.Received(1).Add(Arg.Is<InboxMessage>(m =>
+            m != null && m.EventType == WebhookEventType.MandateStatusChange && m.MandateReference == "OFREN-MND-1"));
+    }
+
+    [Fact]
     public async Task Receive_UnrecognisableBody_IsAcknowledged_ButStoresNothing()
     {
         var result = await Post("not json at all");

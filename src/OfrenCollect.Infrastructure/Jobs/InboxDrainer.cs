@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OfrenCollect.Application.Abstractions.Persistence;
+using OfrenCollect.Application.Mandates.ResolveMandateStatus;
 using OfrenCollect.Application.Reconciliation.HandleTransactionNotification;
 using OfrenCollect.Application.Refunds.ResolveRefund;
 using OfrenCollect.Domain.Webhooks;
@@ -78,6 +79,9 @@ public sealed class InboxDrainer : BackgroundService
                 cancellationToken),
             WebhookEventType.RefundCompletion => mediator.Send(
                 new ResolveRefundCommand(message.RefundReference!),
+                cancellationToken),
+            WebhookEventType.MandateStatusChange => mediator.Send(
+                new ResolveMandateStatusCommand(message.MandateReference!),
                 cancellationToken),
             _ => Task.CompletedTask,
         };

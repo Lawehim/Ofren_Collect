@@ -77,6 +77,13 @@ public sealed class CreateMandateCommandHandler : IRequestHandler<CreateMandateC
         _mandates.Add(mandate);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new CreateMandateResult(mandateReference, creation.AuthorizationLink, mandate.Status.ToString());
+        // The customer authorization link is on get-mandate-status, not the create response.
+        var authorizationLink = await _monnify.GetMandateAuthorizationLinkAsync(mandateReference, cancellationToken);
+        if (string.IsNullOrWhiteSpace(authorizationLink))
+        {
+            authorizationLink = creation.AuthorizationLink;
+        }
+
+        return new CreateMandateResult(mandateReference, authorizationLink, mandate.Status.ToString());
     }
 }

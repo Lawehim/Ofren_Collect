@@ -193,6 +193,22 @@ public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IMonni
         return body is { Count: > 0 } ? MapMandateStatus(body[0].MandateStatus) : MonnifyMandateStatus.Unknown;
     }
 
+    public async Task<string> GetMandateAuthorizationLinkAsync(
+        string mandateReference, CancellationToken cancellationToken)
+    {
+        var token = await GetAccessTokenAsync(cancellationToken);
+
+        var encoded = Uri.EscapeDataString(mandateReference);
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Get, $"/api/v1/direct-debit/mandate/?mandateReferences={encoded}");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        using var response = await SendMonnifyAsync(httpRequest, cancellationToken);
+        var body = await ReadResponseBodyAsync<IReadOnlyList<MandateStatusBody>>(response, cancellationToken);
+
+        return body is { Count: > 0 } ? body[0].AuthorizationLink ?? string.Empty : string.Empty;
+    }
+
     public async Task<MandateDebitResult> DebitMandateAsync(
         MandateDebitRequest request, CancellationToken cancellationToken)
     {
@@ -415,7 +431,8 @@ public sealed class MonnifyClient : IMonnifyClient, IMonnifyRefundClient, IMonni
         [property: JsonPropertyName("redirectUrl")] string? RedirectUrl);
 
     private sealed record MandateStatusBody(
-        [property: JsonPropertyName("mandateStatus")] string? MandateStatus);
+        [property: JsonPropertyName("mandateStatus")] string? MandateStatus,
+        [property: JsonPropertyName("authorizationLink")] string? AuthorizationLink);
 
     private sealed record DebitMandateRequestBody(
         [property: JsonPropertyName("paymentReference")] string PaymentReference,

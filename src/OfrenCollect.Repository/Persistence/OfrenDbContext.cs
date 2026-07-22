@@ -86,8 +86,9 @@ public sealed class OfrenDbContext : DbContext
             b.Property(m => m.TransactionReference).HasMaxLength(ShortText);
             b.Property(m => m.DestinationAccountNumber).HasMaxLength(ShortText);
             b.Property(m => m.RefundReference).HasMaxLength(ShortText);
-            // RefundSucceeded is intentionally not stored: the refund status is re-verified with
-            // Monnify, never taken from the webhook body (§8, FR-11.4).
+            b.Property(m => m.MandateReference).HasMaxLength(ShortText);
+            // The webhook's claimed outcome is intentionally not stored: refund and mandate statuses
+            // are re-verified with Monnify, never taken from the webhook body (§8, FR-9.2, FR-11.4).
             b.Property(m => m.RawPayload).IsRequired();
             b.HasIndex(m => m.ProcessedAt);
         });

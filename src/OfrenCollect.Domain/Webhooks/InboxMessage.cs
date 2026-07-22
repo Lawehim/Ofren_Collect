@@ -21,6 +21,7 @@ public sealed class InboxMessage : Entity
         string? transactionReference,
         string? destinationAccountNumber,
         string? refundReference,
+        string? mandateReference,
         string rawPayload,
         DateTimeOffset receivedAt)
         : base(id)
@@ -29,6 +30,7 @@ public sealed class InboxMessage : Entity
         TransactionReference = transactionReference;
         DestinationAccountNumber = destinationAccountNumber;
         RefundReference = refundReference;
+        MandateReference = mandateReference;
         RawPayload = rawPayload;
         ReceivedAt = receivedAt;
     }
@@ -43,6 +45,9 @@ public sealed class InboxMessage : Entity
 
     /// <summary>Our refund reference — set for <see cref="WebhookEventType.RefundCompletion"/>.</summary>
     public string? RefundReference { get; private set; }
+
+    /// <summary>Our mandate reference — set for <see cref="WebhookEventType.MandateStatusChange"/>.</summary>
+    public string? MandateReference { get; private set; }
 
     public string RawPayload { get; private set; } = string.Empty;
     public DateTimeOffset ReceivedAt { get; private set; }
@@ -63,7 +68,7 @@ public sealed class InboxMessage : Entity
         return new InboxMessage(
             Guid.NewGuid(), WebhookEventType.TransactionCompletion,
             transactionReference.Trim(), destinationAccountNumber.Trim(),
-            refundReference: null, rawPayload, receivedAt);
+            refundReference: null, mandateReference: null, rawPayload, receivedAt);
     }
 
     /// <summary>
@@ -81,7 +86,24 @@ public sealed class InboxMessage : Entity
         return new InboxMessage(
             Guid.NewGuid(), WebhookEventType.RefundCompletion,
             transactionReference: null, destinationAccountNumber: null,
-            refundReference.Trim(), rawPayload, receivedAt);
+            refundReference.Trim(), mandateReference: null, rawPayload, receivedAt);
+    }
+
+    /// <summary>
+    /// Records a mandate-status-change notification (FR-9.2). As with refunds, the webhook is only a
+    /// trigger — the drainer re-verifies the mandate's status with Monnify; the body is not trusted (§8).
+    /// </summary>
+    public static InboxMessage ReceiveMandate(
+        string mandateReference,
+        string rawPayload,
+        DateTimeOffset receivedAt)
+    {
+        Guard.AgainstNullOrWhiteSpace(mandateReference, nameof(mandateReference));
+
+        return new InboxMessage(
+            Guid.NewGuid(), WebhookEventType.MandateStatusChange,
+            transactionReference: null, destinationAccountNumber: null,
+            refundReference: null, mandateReference.Trim(), rawPayload, receivedAt);
     }
 
     public void MarkProcessed(DateTimeOffset at) => ProcessedAt = at;
