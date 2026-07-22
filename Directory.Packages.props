@@ -41,6 +41,11 @@
 
   <ItemGroup Label="Api / logging">
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />
+    <!-- OpenAPI spec (Microsoft, MIT) + Scalar interactive API docs UI (MIT) — §2.2 free/OSS. -->
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.16.16" />
+    <!-- Pin the transitive Microsoft.OpenApi past 2.0.0 (GHSA-v5pm-xwqc-g5wc high-severity fix). -->
+    <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">

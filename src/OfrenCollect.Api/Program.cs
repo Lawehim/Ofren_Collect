@@ -19,6 +19,7 @@ using OfrenCollect.Infrastructure;
 using OfrenCollect.Infrastructure.Auth;
 using OfrenCollect.Repository;
 using OfrenCollect.Repository.Persistence;
+using Scalar.AspNetCore;
 using Serilog;
 
 const string SpaCorsPolicy = "spa";
@@ -46,6 +47,7 @@ builder.Services.AddScoped<ITenantContext, HttpContextTenantContext>();
 builder.Services.AddScoped<IReconciliationNotifier, SignalRReconciliationNotifier>();
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddSignalR();
+builder.Services.AddOpenApi();
 
 builder.Services.AddApplication();
 builder.Services.AddRepository(
@@ -164,6 +166,14 @@ app.UseRateLimiter();
 app.MapControllers();
 app.MapHub<NotificationsHub>("/hubs/notifications");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+
+// Public API documentation: the OpenAPI spec at /openapi/v1.json and an interactive Scalar UI at
+// /docs. Anonymous so reviewers can browse the endpoints without a token.
+app.MapOpenApi().AllowAnonymous();
+app.MapScalarApiReference("/docs", options => options
+    .WithTitle("Ofren Collect API")
+    .WithTheme(ScalarTheme.BluePlanet))
+    .AllowAnonymous();
 
 app.Run();
 

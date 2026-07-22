@@ -37,9 +37,42 @@ breaker**.
 
 ## Architecture
 
-Clean/onion architecture, dependencies pointing inward. See
-[`docs/decisions/`](docs/decisions/) for architecture decisions and the PDF design docs for
-the full specification.
+Clean/onion architecture, dependencies pointing inward. Full diagram:
+[`Ofren_ARCHITECTURE_DIAGRAM.pdf`](Ofren_ARCHITECTURE_DIAGRAM.pdf); architecture decisions in
+[`docs/decisions/`](docs/decisions/).
+
+```mermaid
+flowchart LR
+    Owner(["Business owner"]) -->|"JWT"| SPA
+    Customer(["Customer"]) -->|"pays / authorises"| Mon
+    SPA["React SPA<br/>Vercel"] <-->|"HTTPS · JWT · SignalR"| API
+
+    subgraph API["ASP.NET Core API · Render"]
+        direction TB
+        Api["Api<br/>controllers · SignalR · middleware · rate limit · /docs"] --> App
+        App["Application<br/>CQRS · MediatR · validators · boundary interfaces"] --> Dom
+        Dom["Domain<br/>entities + reconciliation / refund / mandate rules"] --> SK
+        SK["SharedKernel<br/>Money · Guard · Result"]
+        Infra["Infrastructure<br/>Monnify · JWT · Email · AI · Polly · jobs"] -.->|"implements"| App
+        Repo["Repository<br/>EF Core · global tenant filter"] -.->|"implements"| App
+        Jobs["Background workers<br/>inbox & mandate-debit drainers · email outbox · keep-warm"]
+    end
+
+    API -->|"EF Core"| DB[("PostgreSQL<br/>Neon")]
+    API <-->|"verify · refund · mandate · Polly"| Mon["Monnify APIs<br/>reserved account · verify · refunds · direct debit"]
+    Mon -.->|"webhooks"| API
+    API --> Email["Email<br/>Brevo / Mailtrap HTTP"]
+    API --> AI["AI provider<br/>Groq"]
+```
+
+**Zero-touch reconciliation flow** — every naira self-identifies:
+
+```mermaid
+flowchart LR
+    A["Enrol customer"] --> B["Reserved account<br/>(Monnify)"] --> C["Customer pays in"] --> D["Webhook →<br/>durable inbox (200)"] --> E["Re-verify<br/>server-side"] --> F["Reconcile<br/>to invoice"] --> G["Dashboard →<br/>Paid live"]
+```
+
+Refunds and direct-debit mandates reuse the same verify-before-act + idempotency discipline.
 
 ```
 src/
@@ -105,6 +138,9 @@ dotnet run --project src/OfrenCollect.Api
 
 It applies the EF migrations and seeds demo data on first run (so the app is never empty), and
 serves on **http://localhost:5080** — check `http://localhost:5080/health`.
+
+**Interactive API docs** (OpenAPI) live at **`/docs`** (`http://localhost:5080/docs`), with the raw
+spec at `/openapi/v1.json` — browse and try every endpoint there.
 
 ### 4. Run the web app
 
